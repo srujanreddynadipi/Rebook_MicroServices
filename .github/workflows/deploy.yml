@@ -67,8 +67,7 @@ jobs:
       - name: Build and test notification-service
         run: cd notification-service && mvn clean test -B
 
-      - name: Build and test rag-service
-        run: cd rag-service && mvn clean test -B
+      # rag-service is Python/non-Maven — skipped here, built in Docker job only
 
       - name: Build and test api-gateway
         run: cd api-gateway && mvn clean test -B
