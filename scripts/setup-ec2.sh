@@ -163,20 +163,13 @@ if [ -f "$ENV_FILE" ]; then
   warn "Edit it manually: nano $ENV_FILE"
 else
   cat > "$ENV_FILE" << 'EOF'
-# ── Authentication ─────────────────────────────
 JWT_SECRET=CHANGE_ME
-
-# ── AWS (prefer IAM Role on EC2 — leave blank if using instance profile) ───
 AWS_ACCESS_KEY_ID=CHANGE_ME
 AWS_SECRET_ACCESS_KEY=CHANGE_ME
 APP_AWS_BUCKET_NAME=CHANGE_ME
 APP_AWS_REGION=ap-south-1
-
-# ── Mail (SMTP / SES) ──────────────────────────
 MAIL_USERNAME=CHANGE_ME
 MAIL_PASSWORD=CHANGE_ME
-
-# ── AI / RAG ───────────────────────────────────
 OPENAI_API_KEY=CHANGE_ME
 EOF
   info ".env created at $ENV_FILE"
