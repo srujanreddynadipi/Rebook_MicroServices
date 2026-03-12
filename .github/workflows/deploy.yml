@@ -106,8 +106,7 @@ jobs:
             context: ./chat-service
           - service: notification-service
             context: ./notification-service
-          - service: rag-service
-            context: ./rag-service
+          # rag-service skipped — not yet implemented (no src/ or pom.xml)
           - service: api-gateway
             context: ./api-gateway
           - service: eureka-server
