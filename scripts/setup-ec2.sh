@@ -131,7 +131,7 @@ info "vm.swappiness set to 10."
 # ==============================================================================
 section "6/7  Cloning rebook-system repository"
 
-REPO_URL="https://github.com/{YOUR_USERNAME}/rebook-system.git"
+REPO_URL="https://github.com/srujanreddynadipi/Rebook_MicroServices.git"
 TARGET_DIR="$HOME/rebook-system"
 
 if [ -d "$TARGET_DIR/.git" ]; then
