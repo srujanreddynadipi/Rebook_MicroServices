@@ -154,9 +154,29 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 30m
           script: |
             set -e
             cd ~/rebook-system
+
+            echo "==> Writing .env from GitHub secrets..."
+            cat > .env << EOF
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            APP_JWT_SECRET=${{ secrets.JWT_SECRET }}
+            MYSQL_ROOT_PASSWORD=root
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            APP_AWS_BUCKET_NAME=${{ secrets.APP_AWS_BUCKET_NAME }}
+            APP_AWS_REGION=${{ secrets.APP_AWS_REGION }}
+            MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+            MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            EOF
+
+            echo "==> Freeing disk space before pull..."
+            docker system prune -af
+            sudo journalctl --vacuum-size=50M
+            df -h
 
             echo "==> Pulling latest code..."
             git pull origin main
@@ -167,7 +187,7 @@ jobs:
             echo "==> Restarting services..."
             docker-compose up -d --remove-orphans
 
-            echo "==> Cleaning up unused images..."
-            docker system prune -f
+            echo "==> Status:"
+            docker-compose ps
 
             echo "Deployment complete"

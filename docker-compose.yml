@@ -90,6 +90,7 @@ services:
 
   eureka-server:
     build: ./eureka-server
+    image: srujanreddynadipi/rebook-eureka-server:latest
     container_name: rebook-eureka-server
     restart: unless-stopped
     ports:
@@ -105,6 +106,7 @@ services:
 
   api-gateway:
     build: ./api-gateway
+    image: srujanreddynadipi/rebook-api-gateway:latest
     container_name: rebook-api-gateway
     restart: unless-stopped
     depends_on:
@@ -126,6 +128,7 @@ services:
 
   auth-service:
     build: ./auth-service
+    image: srujanreddynadipi/rebook-auth-service:latest
     container_name: rebook-auth-service
     restart: unless-stopped
     depends_on:
@@ -149,6 +152,7 @@ services:
 
   book-service:
     build: ./book-service
+    image: srujanreddynadipi/rebook-book-service:latest
     container_name: rebook-book-service
     restart: unless-stopped
     depends_on:
@@ -175,6 +179,7 @@ services:
 
   request-service:
     build: ./request-service
+    image: srujanreddynadipi/rebook-request-service:latest
     container_name: rebook-request-service
     restart: unless-stopped
     depends_on:
@@ -199,6 +204,7 @@ services:
 
   chat-service:
     build: ./chat-service
+    image: srujanreddynadipi/rebook-chat-service:latest
     container_name: rebook-chat-service
     restart: unless-stopped
     depends_on:
@@ -222,6 +228,7 @@ services:
 
   notification-service:
     build: ./notification-service
+    image: srujanreddynadipi/rebook-notification-service:latest
     container_name: rebook-notification-service
     restart: unless-stopped
     depends_on:
