@@ -1,0 +1,9 @@
+# ─────────────────────────────────────────────────────────────
+# Docker profile — overrides application.yml when
+# SPRING_PROFILES_ACTIVE=docker (set by docker-compose).
+# ─────────────────────────────────────────────────────────────
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/

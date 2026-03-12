@@ -1,0 +1,373 @@
+
+# ════════════════════════════════════════════
+# PHASE 2 — AUTH SERVICE
+# ════════════════════════════════════════════
+
+---
+
+## PROMPT 2.1 — Auth Service pom.xml and Project Structure
+> **Where to use:** Inside `auth-service/` folder
+> **Spring Initializr deps:** Web, JPA, MySQL Driver, Security, Validation, Actuator, Eureka Client
+
+```
+   Set up the Auth Service for the ReBook microservices project.
+
+   Project details:
+   - Java 17, Maven, Spring Boot 3.x
+   - Group: com.rebook, Artifact: auth-service
+   - Port: 8081
+   - Database schema: auth_db
+
+   Generate:
+
+   1. pom.xml with ALL of the following dependencies:
+      - spring-boot-starter-web
+      - spring-boot-starter-data-jpa
+      - spring-boot-starter-security
+      - spring-boot-starter-validation
+      - spring-boot-starter-actuator
+      - spring-cloud-starter-netflix-eureka-client
+      - mysql-connector-j
+      - lombok
+      - mapstruct (1.5.5.Final) + mapstruct-processor
+      - springdoc-openapi-starter-webmvc-ui (2.x)
+      - jjwt-api, jjwt-impl, jjwt-jackson (0.11.5)
+      - Note: Add maven-compiler-plugin configured for Lombok + MapStruct annotation processing
+
+   2. Package structure to create (empty placeholder classes):
+      com.rebook.auth/
+      ├── AuthServiceApplication.java
+      ├── config/
+      │   ├── SecurityConfig.java
+      │   └── SwaggerConfig.java
+      ├── controller/
+      │   ├── AuthController.java
+      │   └── UserController.java
+      ├── service/
+      │   ├── AuthService.java
+      │   └── UserService.java
+      ├── repository/
+      │   └── UserRepository.java
+      ├── entity/
+      │   └── User.java
+      ├── dto/
+      │   ├── request/
+      │   └── response/
+      ├── mapper/
+      │   └── UserMapper.java
+      ├── security/
+      │   ├── JwtUtil.java
+      │   └── JwtAuthFilter.java
+      └── exception/
+         └── GlobalExceptionHandler.java
+
+   3. application.yml:
+      server.port: 8081
+      spring.application.name: auth-service
+      spring.datasource: MySQL with auth_db schema, username root, password root
+      spring.jpa.hibernate.ddl-auto: update
+      spring.jpa.show-sql: true
+      eureka.client.service-url.defaultZone: http://localhost:8761/eureka/
+      app.jwt.secret: (256-bit base64 secret placeholder)
+      app.jwt.expiration: 900000 (15 minutes)
+      app.jwt.refresh-expiration: 604800000 (7 days)
+      springdoc.api-docs.path: /api-docs
+      springdoc.swagger-ui.path: /swagger-ui.html
+      Actuator: expose health, info endpoints
+```
+
+---
+
+## PROMPT 2.2 — User Entity and Repository
+> **Where to use:** `auth-service/src/main/java/com/rebook/auth/`
+> **Open file context:** application.yml
+
+```
+Create the User entity and UserRepository for the ReBook Auth Service.
+
+1. User.java entity in package com.rebook.auth.entity:
+   - Annotations: @Entity, @Table(name="users"), @Data, @Builder, @NoArgsConstructor, @AllArgsConstructor (Lombok)
+   - Fields:
+     @Id @GeneratedValue(strategy=IDENTITY) Long id
+     @Column(nullable=false) String name
+     @Column(nullable=false, unique=true) String email
+     @Column(nullable=false) String password (BCrypt hashed)
+     String mobile
+     String city
+     String pincode
+     Double latitude  (for geo-distance search)
+     Double longitude
+     @Enumerated(EnumType.STRING) Role role  (ROLE_USER or ROLE_ADMIN)
+     boolean isBanned (default false)
+     Double averageRating (default 0.0)
+     Integer totalRatings (default 0)
+     @CreationTimestamp LocalDateTime createdAt
+     @UpdateTimestamp LocalDateTime updatedAt
+
+2. Role.java enum in com.rebook.auth.entity:
+   ROLE_USER, ROLE_ADMIN
+
+3. UserRepository.java in com.rebook.auth.repository:
+   - Extends JpaRepository<User, Long>
+   - Optional<User> findByEmail(String email)
+   - Boolean existsByEmail(String email)
+   - Page<User> findByIsBannedFalse(Pageable pageable)  (admin view)
+   - @Query to update averageRating: UPDATE User u SET u.averageRating = :rating, u.totalRatings = :total WHERE u.id = :userId
+```
+
+---
+
+## PROMPT 2.3 — DTOs and MapStruct Mapper
+> **Where to use:** `auth-service/src/main/java/com/rebook/auth/`
+> **Open file context:** User.java entity
+
+```
+Create all DTOs and MapStruct mapper for the ReBook Auth Service.
+
+1. Request DTOs in com.rebook.auth.dto.request:
+
+   RegisterRequest.java:
+   - @NotBlank String name
+   - @NotBlank @Email String email
+   - @NotBlank @Size(min=8) String password
+   - String mobile
+   - String city
+   - String pincode
+   - Double latitude
+   - Double longitude
+   Use @Data, @Builder, @NoArgsConstructor, @AllArgsConstructor (Lombok)
+
+   LoginRequest.java:
+   - @NotBlank @Email String email
+   - @NotBlank String password
+
+   UpdateProfileRequest.java:
+   - String name
+   - String mobile
+   - String city
+   - String pincode
+   - Double latitude
+   - Double longitude
+
+   RefreshTokenRequest.java:
+   - @NotBlank String refreshToken
+
+2. Response DTOs in com.rebook.auth.dto.response:
+
+   AuthResponse.java:
+   - String accessToken
+   - String refreshToken
+   - String tokenType = "Bearer"
+   - UserResponse user
+
+   UserResponse.java:
+   - Long id
+   - String name
+   - String email
+   - String mobile
+   - String city
+   - String pincode
+   - Double latitude
+   - Double longitude
+   - String role
+   - boolean isBanned
+   - Double averageRating
+   - Integer totalRatings
+   - LocalDateTime createdAt
+
+3. UserMapper.java in com.rebook.auth.mapper:
+   - @Mapper(componentModel = "spring")
+   - UserResponse toResponse(User user)
+   - List<UserResponse> toResponseList(List<User> users)
+   - @Mapping(target = "id", ignore = true)
+   - @Mapping(target = "password", ignore = true)
+   - @Mapping(target = "role", ignore = true)
+   - void updateUserFromRequest(UpdateProfileRequest request, @MappingTarget User user)
+```
+
+---
+
+## PROMPT 2.4 — JWT Utility and Security Filter
+> **Where to use:** `auth-service/src/main/java/com/rebook/auth/security/`
+> **Open file context:** User.java, application.yml
+
+```
+Create the JWT utility class and security filter for the ReBook Auth Service.
+
+1. JwtUtil.java in com.rebook.auth.security:
+   - @Component with @Value("${app.jwt.secret}") String secret
+   - @Value("${app.jwt.expiration}") long expiration
+   - @Value("${app.jwt.refresh-expiration}") long refreshExpiration
+
+   Methods:
+   - String generateAccessToken(User user):
+     Claims: subject=user.getId().toString(), "email"=user.getEmail(), "role"=user.getRole().name()
+     Expiry: expiration milliseconds from now
+     Sign with HMAC SHA-256
+
+   - String generateRefreshToken(User user):
+     Claims: subject=user.getId().toString()
+     Expiry: refreshExpiration milliseconds
+     Sign with HMAC SHA-256
+
+   - Claims extractAllClaims(String token)
+   - String extractUserId(String token)
+   - String extractEmail(String token)
+   - String extractRole(String token)
+   - boolean isTokenExpired(String token)
+   - boolean validateToken(String token, UserDetails userDetails)
+
+2. JwtAuthFilter.java in com.rebook.auth.security:
+   - Extends OncePerRequestFilter
+   - Extract Bearer token from Authorization header
+   - Validate token using JwtUtil
+   - Load user by email from UserDetailsService
+   - Set SecurityContextHolder authentication if valid
+   - If token invalid: clear context and let request continue (let security config handle 401)
+
+3. CustomUserDetailsService.java in com.rebook.auth.security:
+   - Implements UserDetailsService
+   - loadUserByUsername(String email): loads User from UserRepository by email
+   - Returns UserDetails with email as username, hashed password, and [SimpleGrantedAuthority(role)]
+   - Throws UsernameNotFoundException if not found
+```
+
+---
+
+## PROMPT 2.5 — Security Configuration
+> **Where to use:** `auth-service/src/main/java/com/rebook/auth/config/`
+> **Open file context:** JwtAuthFilter.java, CustomUserDetailsService.java
+
+```
+Create the Spring Security configuration for the ReBook Auth Service.
+
+SecurityConfig.java in com.rebook.auth.config:
+- @Configuration @EnableWebSecurity @EnableMethodSecurity
+- Inject JwtAuthFilter and CustomUserDetailsService
+
+Configure SecurityFilterChain:
+- Stateless session (SessionCreationPolicy.STATELESS)
+- Disable CSRF
+- CORS: allow all origins, all methods, all headers (for local dev)
+- Permit without auth:
+  POST /api/auth/register
+  POST /api/auth/login
+  POST /api/auth/refresh-token
+  GET /api-docs/**
+  GET /swagger-ui/**
+  GET /actuator/**
+- All other requests: authenticated
+- Add JwtAuthFilter before UsernamePasswordAuthenticationFilter
+- Custom 401 response: return JSON with message "Unauthorized" 
+
+Also configure:
+- PasswordEncoder bean: BCryptPasswordEncoder(strength=12)
+- AuthenticationManager bean
+- AuthenticationProvider bean (DaoAuthenticationProvider with CustomUserDetailsService + BCrypt)
+
+SwaggerConfig.java in com.rebook.auth.config:
+- @OpenAPIDefinition with info: title "ReBook Auth Service", version "1.0", description
+- @SecurityScheme: name="bearerAuth", type=HTTP, scheme="bearer", bearerFormat="JWT"
+```
+
+---
+
+## PROMPT 2.6 — Auth Service Business Logic
+> **Where to use:** `auth-service/src/main/java/com/rebook/auth/service/`
+> **Open file context:** User.java, JwtUtil.java, UserRepository.java, all DTOs
+
+```
+Create the AuthService and UserService for the ReBook Auth Service.
+
+1. AuthService.java in com.rebook.auth.service:
+   - @Service with constructor injection of UserRepository, JwtUtil, PasswordEncoder, UserMapper
+
+   Methods:
+
+   AuthResponse register(RegisterRequest request):
+   - Check if email already exists → throw RuntimeException("Email already registered")
+   - Create User entity, set role=ROLE_USER, encode password with BCrypt
+   - Save user, generate access + refresh tokens
+   - Return AuthResponse with both tokens and UserResponse
+
+   AuthResponse login(LoginRequest request):
+   - Find user by email → throw RuntimeException("Invalid credentials") if not found
+   - Check isBanned → throw RuntimeException("Account is banned")
+   - Verify password with BCrypt → throw RuntimeException("Invalid credentials")
+   - Generate new access + refresh tokens
+   - Return AuthResponse
+
+   AuthResponse refreshToken(RefreshTokenRequest request):
+   - Validate refresh token using JwtUtil
+   - Extract userId, load user
+   - Generate new access token (refresh token stays the same)
+   - Return AuthResponse
+
+2. UserService.java in com.rebook.auth.service:
+   - @Service with constructor injection
+
+   Methods:
+   - UserResponse getProfile(Long userId): find by id, map to response
+   - UserResponse getUserById(Long userId): find by id, map to response
+   - UserResponse updateProfile(Long userId, UpdateProfileRequest request): update fields, save
+   - Page<UserResponse> getAllUsers(Pageable pageable): admin only
+   - void banUser(Long userId): set isBanned=true, save
+   - void unbanUser(Long userId): set isBanned=false, save
+   - void deleteUser(Long userId): delete by id
+
+   All methods throw ResourceNotFoundException (create this custom exception) if user not found.
+```
+
+---
+
+## PROMPT 2.7 — Auth Controllers
+> **Where to use:** `auth-service/src/main/java/com/rebook/auth/controller/`
+> **Open file context:** AuthService.java, UserService.java, all DTOs
+
+```
+Create REST controllers for the ReBook Auth Service.
+
+1. AuthController.java in com.rebook.auth.controller:
+   - @RestController @RequestMapping("/api/auth")
+   - @Tag(name = "Authentication", description = "Register and login endpoints") — Swagger
+   - Inject AuthService
+
+   Endpoints:
+   POST /api/auth/register → register(@Valid @RequestBody RegisterRequest) → ResponseEntity<AuthResponse> 201
+   POST /api/auth/login → login(@Valid @RequestBody LoginRequest) → ResponseEntity<AuthResponse> 200
+   POST /api/auth/refresh-token → refreshToken(@Valid @RequestBody RefreshTokenRequest) → ResponseEntity<AuthResponse> 200
+
+2. UserController.java in com.rebook.auth.controller:
+   - @RestController @RequestMapping("/api/users")
+   - @SecurityRequirement(name = "bearerAuth") — Swagger
+   - Inject UserService
+   - Extract userId from X-User-Id request header (set by Gateway)
+   - Extract role from X-User-Roles request header
+
+   Endpoints:
+   GET /api/users/profile → getMyProfile(@RequestHeader("X-User-Id") Long userId) → UserResponse 200
+   GET /api/users/{id} → getUserById(@PathVariable Long id) → UserResponse 200
+   PUT /api/users/profile → updateProfile(@RequestHeader Long userId, @Valid @RequestBody UpdateProfileRequest) → UserResponse 200
+
+   Admin endpoints under /api/admin/users:
+   GET /api/admin/users → getAllUsers(Pageable) → Page<UserResponse> — @PreAuthorize("hasRole('ADMIN')")
+   PUT /api/admin/users/{id}/ban → banUser(@PathVariable Long id) — @PreAuthorize("hasRole('ADMIN')")
+   PUT /api/admin/users/{id}/unban → unbanUser(@PathVariable Long id) — @PreAuthorize("hasRole('ADMIN')")
+   DELETE /api/admin/users/{id} → deleteUser(@PathVariable Long id) — @PreAuthorize("hasRole('ADMIN')")
+
+3. GlobalExceptionHandler.java in com.rebook.auth.exception:
+   - @RestControllerAdvice
+   - Handle: ResourceNotFoundException → 404
+   - Handle: RuntimeException → 400 with message
+   - Handle: MethodArgumentNotValidException → 400 with field errors map
+   - Handle: Exception → 500 with generic message
+   - All responses return: { "status": int, "message": String, "timestamp": LocalDateTime }
+
+4. Dockerfile for auth-service:
+   Multi-stage build: maven:3.9-eclipse-temurin-17 → eclipse-temurin:17-jre-alpine
+   Expose 8081, healthcheck /actuator/health
+```
+
+---
+
+---

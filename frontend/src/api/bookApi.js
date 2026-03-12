@@ -1,0 +1,83 @@
+import axiosInstance from './axiosInstance';
+
+const BOOKS_BASE = '/api/books';
+
+/**
+ * Get books with search and filter params
+ * @param {object} params - { keyword, category, condition, type, city, maxDistance, page, size }
+ * @returns {Promise<BookPage>}
+ */
+export const getBooks = (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  return axiosInstance
+    .get(`${BOOKS_BASE}/search${queryString ? '?' + queryString : ''}`)
+    .then((res) => res.data);
+};
+
+/**
+ * Get book by ID
+ * @param {string} id - Book ID
+ * @returns {Promise<BookResponse>}
+ */
+export const getBookById = (id) =>
+  axiosInstance.get(`${BOOKS_BASE}/${id}`).then((res) => res.data);
+
+/**
+ * Get current user's books with pagination
+ * @param {object} params - { page, size }
+ * @returns {Promise<BookPage>}
+ */
+export const getMyBooks = (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  return axiosInstance
+    .get(`${BOOKS_BASE}/my${queryString ? '?' + queryString : ''}`)
+    .then((res) => res.data);
+};
+
+/**
+ * Create a new book with images
+ * @param {FormData} formData - { book: JSON string, images: File[] }
+ * @returns {Promise<BookResponse>}
+ */
+export const createBook = (formData) =>
+  axiosInstance
+    .post(BOOKS_BASE, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res.data);
+
+/**
+ * Update book
+ * @param {string} id - Book ID
+ * @param {FormData} formData - { book: JSON string, images: File[] }
+ * @returns {Promise<BookResponse>}
+ */
+export const updateBook = (id, formData) =>
+  axiosInstance
+    .put(`${BOOKS_BASE}/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res.data);
+
+/**
+ * Delete book
+ * @param {string} id - Book ID
+ * @returns {Promise<void>}
+ */
+export const deleteBook = (id) =>
+  axiosInstance.delete(`${BOOKS_BASE}/${id}`).then((res) => res.data);
+
+/**
+ * Get popular books
+ * @returns {Promise<BookResponse[]>}
+ */
+export const getPopularBooks = () =>
+  axiosInstance.get(`${BOOKS_BASE}/popular`).then((res) => res.data);
+
+/**
+ * Get book recommendations based on similarity
+ * @param {string} bookId - Book ID
+ * @returns {Promise<BookResponse[]>}
+ */
+export const getRecommendations = (bookId) =>
+  axiosInstance.get(`/api/recommendations/${bookId}`).then((res) => res.data);

@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════
+   REBOOK DESIGN TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --primary:          #00C9A7;
+  --primary-dark:     #00A88C;
+  --primary-light:    #E6FBF7;
+  --secondary:        #845EF7;
+  --secondary-light:  #F3EEFF;
+  --accent-orange:    #FF6B35;
+  --accent-yellow:    #FFB830;
+  --danger:           #FF4D4F;
+  --success:          #52C41A;
+  --warning:          #FAAD14;
+
+  --bg-page:          #F7F8FC;
+  --bg-card:          #FFFFFF;
+  --bg-dark:          #0D1117;
+  --text-primary:     #1A1D23;
+  --text-secondary:   #5C6370;
+  --text-muted:       #9CA3AF;
+  --border:           #E8EAED;
+
+  --shadow-card:      0 2px 12px rgba(0,0,0,0.08);
+  --shadow-hover:     0 8px 32px rgba(0,0,0,0.14);
+  --radius-card:      14px;
+  --radius-btn:       10px;
+  --radius-input:     10px;
+}
+
+/* ═══════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════ */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Sora', sans-serif;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ═══════════════════════════════════════════
+   UTILITY CLASSES
+═══════════════════════════════════════════ */
+
+/* Hide scrollbar but allow scroll */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════ */
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f0f2f5 25%, #e4e8ed 50%, #f0f2f5 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* Fade in up — page entry */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+/* Floating — hero book stack */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-10px); }
+}
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Staggered card entrance */
+.card-stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.card-stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.card-stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.card-stagger > *:nth-child(4) { animation-delay: 0.20s; }
+.card-stagger > *:nth-child(5) { animation-delay: 0.25s; }
+.card-stagger > *:nth-child(6) { animation-delay: 0.30s; }
+
+/* ═══════════════════════════════════════════
+   FORM ELEMENTS
+═══════════════════════════════════════════ */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+/* ═══════════════════════════════════════════
+   TOAST OVERRIDES (react-hot-toast)
+═══════════════════════════════════════════ */
+/* Applied via toastOptions in main.jsx */

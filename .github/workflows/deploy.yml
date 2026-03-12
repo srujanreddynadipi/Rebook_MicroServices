@@ -1,0 +1,175 @@
+# ============================================================
+# ReBook System — CI/CD Pipeline
+# Triggered on push to main branch
+#
+# Required GitHub Secrets:
+#   DOCKER_USERNAME        — Docker Hub username
+#   DOCKER_PASSWORD        — Docker Hub password / access token
+#   EC2_HOST               — EC2 instance public IP or hostname
+#   EC2_USERNAME           — EC2 SSH username (e.g. ubuntu, ec2-user)
+#   EC2_SSH_KEY            — EC2 private SSH key (PEM contents)
+#   JWT_SECRET             — JWT signing secret
+#   AWS_ACCESS_KEY_ID      — AWS access key (S3 / SES)
+#   AWS_SECRET_ACCESS_KEY  — AWS secret key
+#   APP_AWS_BUCKET_NAME    — S3 bucket name for book covers
+#   APP_AWS_REGION         — AWS region (e.g. us-east-1)
+#   MAIL_USERNAME          — SMTP / SES sender address
+#   MAIL_PASSWORD          — SMTP / SES password
+#   OPENAI_API_KEY         — OpenAI API key (RAG service)
+# ============================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Job 1: Build & Test all services
+  # ──────────────────────────────────────────────
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # ── Java microservices ──────────────────────
+
+      - name: Build and test auth-service
+        run: cd auth-service && mvn clean test -B
+
+      - name: Build and test book-service
+        run: cd book-service && mvn clean test -B
+
+      - name: Build and test request-service
+        run: cd request-service && mvn clean test -B
+
+      - name: Build and test chat-service
+        run: cd chat-service && mvn clean test -B
+
+      - name: Build and test notification-service
+        run: cd notification-service && mvn clean test -B
+
+      - name: Build and test rag-service
+        run: cd rag-service && mvn clean test -B
+
+      - name: Build and test api-gateway
+        run: cd api-gateway && mvn clean test -B
+
+      # ── React frontend ──────────────────────────
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build React frontend
+        run: cd frontend && npm ci && npm run build
+
+  # ──────────────────────────────────────────────
+  # Job 2: Build & Push Docker images (parallel via matrix)
+  # ──────────────────────────────────────────────
+  build-and-push-docker:
+    name: Build and Push Docker — ${{ matrix.service }}
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: auth-service
+            context: ./auth-service
+          - service: book-service
+            context: ./book-service
+          - service: request-service
+            context: ./request-service
+          - service: chat-service
+            context: ./chat-service
+          - service: notification-service
+            context: ./notification-service
+          - service: rag-service
+            context: ./rag-service
+          - service: api-gateway
+            context: ./api-gateway
+          - service: eureka-server
+            context: ./eureka-server
+          - service: frontend
+            context: ./frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/rebook-${{ matrix.service }}:latest
+            ${{ secrets.DOCKER_USERNAME }}/rebook-${{ matrix.service }}:${{ github.sha }}
+          # Layer caching scoped per service to avoid cross-contamination
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # ──────────────────────────────────────────────
+  # Job 3: Deploy to EC2
+  # ──────────────────────────────────────────────
+  deploy-to-ec2:
+    name: Deploy to EC2
+    needs: build-and-push-docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH into EC2 and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/rebook-system
+
+            echo "==> Pulling latest code..."
+            git pull origin main
+
+            echo "==> Pulling latest Docker images..."
+            docker-compose pull
+
+            echo "==> Restarting services..."
+            docker-compose up -d --remove-orphans
+
+            echo "==> Cleaning up unused images..."
+            docker system prune -f
+
+            echo "Deployment complete"

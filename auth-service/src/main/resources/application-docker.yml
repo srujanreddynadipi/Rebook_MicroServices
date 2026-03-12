@@ -1,0 +1,17 @@
+# ─────────────────────────────────────────────────────────────
+# Docker profile — overrides application.yml when
+# SPRING_PROFILES_ACTIVE=docker (set by docker-compose).
+# Only properties that differ from local dev are listed here.
+# ─────────────────────────────────────────────────────────────
+
+spring:
+  datasource:
+    # Inside Docker, "mysql" is the container name defined in docker-compose.yml
+    # Port is 3306 (container-internal), not 3307 (host-mapped port)
+    url: jdbc:mysql://mysql:3306/auth_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+
+eureka:
+  client:
+    service-url:
+      # "eureka-server" is the container name defined in docker-compose.yml
+      defaultZone: http://eureka-server:8761/eureka/

@@ -1,0 +1,40 @@
+# ── Secrets — NEVER commit these ──────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# ── Maven build output ──────────────────────────────────
+**/target/
+!**/target/generated-sources/
+*.jar
+*.war
+
+# ── Node / Frontend ─────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.env
+npm-debug.log*
+
+# ── IDE ─────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.class
+.classpath
+.project
+.settings/
+
+# ── OS ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Docker ──────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── Logs ────────────────────────────────────────────────
+*.log
+logs/

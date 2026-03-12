@@ -1,0 +1,256 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: rebook-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p${MYSQL_ROOT_PASSWORD:-root} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - rebook-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: rebook-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - rebook-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: rebook-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+    networks:
+      - rebook-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: rebook-kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - rebook-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: rebook-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: rebook-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    ports:
+      - "8090:8080"
+    networks:
+      - rebook-network
+
+  eureka-server:
+    build: ./eureka-server
+    container_name: rebook-eureka-server
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+    networks:
+      - rebook-network
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: rebook-api-gateway
+    restart: unless-stopped
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+    networks:
+      - rebook-network
+
+  auth-service:
+    build: ./auth-service
+    container_name: rebook-auth-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+    networks:
+      - rebook-network
+
+  book-service:
+    build: ./book-service
+    container_name: rebook-book-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+    networks:
+      - rebook-network
+
+  request-service:
+    build: ./request-service
+    container_name: rebook-request-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+    networks:
+      - rebook-network
+
+  chat-service:
+    build: ./chat-service
+    container_name: rebook-chat-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+    networks:
+      - rebook-network
+
+  notification-service:
+    build: ./notification-service
+    container_name: rebook-notification-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8085/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+    networks:
+      - rebook-network
+
+volumes:
+  mysql_data:
+  redis_data:
+  kafka_data:
+
+networks:
+  rebook-network:
+    driver: bridge
