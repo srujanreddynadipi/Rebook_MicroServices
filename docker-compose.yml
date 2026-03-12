@@ -253,6 +253,19 @@ services:
     networks:
       - rebook-network
 
+  frontend:
+    build: ./frontend
+    image: srujanreddynadipi/rebook-frontend:latest
+    container_name: rebook-frontend
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_started
+    ports:
+      - "80:80"
+    networks:
+      - rebook-network
+
 volumes:
   mysql_data:
   redis_data:
