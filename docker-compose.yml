@@ -161,7 +161,7 @@ services:
       eureka-server:
         condition: service_healthy
       kafka:
-        condition: service_healthy
+        condition: service_started
       redis:
         condition: service_healthy
     ports:
@@ -193,7 +193,7 @@ services:
       eureka-server:
         condition: service_healthy
       kafka:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "8083:8083"
     environment:
@@ -242,7 +242,7 @@ services:
       eureka-server:
         condition: service_healthy
       kafka:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "8085:8085"
     environment:

@@ -178,9 +178,10 @@ jobs:
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             EOF
 
-            echo "==> Freeing disk space before pull..."
-            docker system prune -af
-            sudo journalctl --vacuum-size=50M
+            echo "==> Lightweight cleanup (preserve image cache)..."
+            docker image prune -f
+            docker builder prune -f --filter "until=24h" || true
+            sudo journalctl --vacuum-size=100M
             df -h
 
             echo "==> Pulling latest code..."
