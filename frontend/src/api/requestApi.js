@@ -3,6 +3,28 @@ import axiosInstance from './axiosInstance';
 const REQUESTS_BASE = '/api/requests';
 const REVIEWS_BASE = '/api/reviews';
 
+const normalizeRequest = (item) => ({
+  ...item,
+  requesterName:
+    item.requesterName
+    ?? item.senderName
+    ?? item.requester_name
+    ?? (item.senderId ? `User ${item.senderId}` : 'User'),
+  ownerName:
+    item.ownerName
+    ?? item.receiverName
+    ?? item.owner_name
+    ?? (item.receiverId ? `User ${item.receiverId}` : 'User'),
+});
+
+const normalizePage = (pageData) => {
+  if (!pageData || !Array.isArray(pageData.content)) return pageData;
+  return {
+    ...pageData,
+    content: pageData.content.map(normalizeRequest),
+  };
+};
+
 /**
  * Create a new request (donation or lending)
  * @param {object} data - { bookId, requestType, noOfWeeks }
@@ -20,7 +42,7 @@ export const getSentRequests = (params = {}) => {
   const queryString = new URLSearchParams(params).toString();
   return axiosInstance
     .get(`${REQUESTS_BASE}/sent${queryString ? '?' + queryString : ''}`)
-    .then((res) => res.data);
+    .then((res) => normalizePage(res.data));
 };
 
 /**
@@ -32,7 +54,7 @@ export const getReceivedRequests = (params = {}) => {
   const queryString = new URLSearchParams(params).toString();
   return axiosInstance
     .get(`${REQUESTS_BASE}/received${queryString ? '?' + queryString : ''}`)
-    .then((res) => res.data);
+    .then((res) => normalizePage(res.data));
 };
 
 /**

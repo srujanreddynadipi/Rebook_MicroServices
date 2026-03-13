@@ -1,10 +1,21 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Upload, X, ImagePlus, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { Upload, X, ImagePlus, ChevronRight, ChevronLeft, Check, Crosshair } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import * as bookApi from '../../api/bookApi';
 import useAuth from '../../hooks/useAuth';
+import useGeolocation from '../../hooks/useGeolocation';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 const CATEGORIES = [
   { key: 'ENGINEERING', emoji: '🔧', label: 'Engineering' },
@@ -26,24 +37,77 @@ const CONDITIONS = [
 ];
 
 const STEPS = ['Details', 'Category & Type', 'Images'];
+const DEFAULT_MAP_CENTER = [17.385, 78.4867];
+
+function DraggableMarker({ position, onMove }) {
+  const markerRef = useRef(null);
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (!marker) return;
+        const { lat, lng } = marker.getLatLng();
+        onMove(lat, lng);
+      },
+    }),
+    [onMove]
+  );
+
+  return <Marker draggable position={position} eventHandlers={eventHandlers} ref={markerRef} />;
+}
+
+function RecenterMap({ center }) {
+  const map = useMapEvents({});
+
+  useEffect(() => {
+    if (!center || center.length !== 2) return;
+    map.setView(center, center[0] === DEFAULT_MAP_CENTER[0] && center[1] === DEFAULT_MAP_CENTER[1] ? 5 : 13);
+  }, [center, map]);
+
+  return null;
+}
 
 export default function AddBookPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const fileRef = useRef(null);
+  const { coords, loading: geoLoading, error: geoError, getLocation } = useGeolocation();
+
+  const parsedUserLatitude = Number(user?.latitude);
+  const parsedUserLongitude = Number(user?.longitude);
+  const initialLatitude = Number.isFinite(parsedUserLatitude) ? parsedUserLatitude : 0;
+  const initialLongitude = Number.isFinite(parsedUserLongitude) ? parsedUserLongitude : 0;
+  const hasInitialCoords = Number.isFinite(parsedUserLatitude) && Number.isFinite(parsedUserLongitude);
+  const initialMapCenter = hasInitialCoords
+    ? [initialLatitude, initialLongitude]
+    : DEFAULT_MAP_CENTER;
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     title: '', author: '', publisher: '', isbn: '', keywords: '',
     category: '', condition: 'USED_GOOD',
     city: user?.city || '', isDonation: true, isLending: false,
+    latitude: initialLatitude,
+    longitude: initialLongitude,
   });
   const [images, setImages] = useState([]);
   const [previews, setPreviews] = useState([]);
+  const [mapCenter, setMapCenter] = useState(initialMapCenter);
+
+  useEffect(() => {
+    if (!coords) return;
+    setForm((prev) => ({ ...prev, latitude: coords.lat, longitude: coords.lng }));
+    setMapCenter([coords.lat, coords.lng]);
+    toast.success('Location captured');
+  }, [coords]);
 
   const set = (key) => (e) => setForm((p) => ({ ...p, [key]: e.target.value }));
   const toggle = (key) => () => setForm((p) => ({ ...p, [key]: !p[key] }));
+  const handleMarkerMove = (latitude, longitude) => {
+    setForm((prev) => ({ ...prev, latitude, longitude }));
+    setMapCenter([latitude, longitude]);
+  };
 
   const mutation = useMutation({
     mutationFn: (fd) => bookApi.createBook(fd),
@@ -90,6 +154,8 @@ export default function AddBookPage() {
       isbn: form.isbn, keywords: form.keywords, category: form.category,
       condition: form.condition, city: form.city,
       isDonation: form.isDonation, isLending: form.isLending,
+      latitude: Number.isFinite(form.latitude) ? form.latitude : null,
+      longitude: Number.isFinite(form.longitude) ? form.longitude : null,
     };
     fd.append('bookRequest', new Blob([JSON.stringify(bookRequest)], { type: 'application/json' }));
     images.forEach((img) => fd.append('images', img));
@@ -166,6 +232,79 @@ export default function AddBookPage() {
               </div>
               <div><label style={labelStyle}>City *</label>
                 <input value={form.city} onChange={set('city')} placeholder="Hyderabad" style={inputStyle} onFocus={focusH} onBlur={blurH} /></div>
+              <div>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div>
+                    <label style={{ ...labelStyle, marginBottom: 2 }}>Pickup location</label>
+                    <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', color: 'var(--text-muted)', margin: 0 }}>
+                      Use your current location or drag the pin to the exact spot.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={getLocation}
+                    disabled={geoLoading}
+                    className="flex items-center gap-2 border-none cursor-pointer"
+                    style={{
+                      height: 38,
+                      padding: '0 14px',
+                      borderRadius: 10,
+                      background: geoLoading ? 'var(--border)' : 'rgba(0,201,167,0.12)',
+                      color: geoLoading ? 'var(--text-muted)' : 'var(--primary)',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontWeight: 600,
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    <Crosshair size={15} />
+                    {geoLoading ? 'Locating…' : 'Use My Location'}
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    height: 260,
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-page)',
+                  }}
+                >
+                  <MapContainer
+                    center={mapCenter}
+                    zoom={mapCenter[0] === DEFAULT_MAP_CENTER[0] && mapCenter[1] === DEFAULT_MAP_CENTER[1] ? 5 : 13}
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <RecenterMap center={mapCenter} />
+                    <DraggableMarker
+                      position={[
+                        Number.isFinite(form.latitude) ? form.latitude : mapCenter[0],
+                        Number.isFinite(form.longitude) ? form.longitude : mapCenter[1],
+                      ]}
+                      onMove={handleMarkerMove}
+                    />
+                  </MapContainer>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 mt-2" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                  <span>
+                    Lat: {Number.isFinite(form.latitude) ? form.latitude.toFixed(5) : 'Not set'}
+                  </span>
+                  <span>
+                    Lng: {Number.isFinite(form.longitude) ? form.longitude.toFixed(5) : 'Not set'}
+                  </span>
+                </div>
+
+                {geoError && (
+                  <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', color: 'var(--danger)', margin: '8px 0 0' }}>
+                    {geoError}
+                  </p>
+                )}
+              </div>
               <div><label style={labelStyle}>Keywords</label>
                 <input value={form.keywords} onChange={set('keywords')} placeholder="algorithms, programming, CS" style={inputStyle} onFocus={focusH} onBlur={blurH} /></div>
             </div>

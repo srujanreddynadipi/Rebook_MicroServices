@@ -4,6 +4,10 @@ spring:
   kafka:
     bootstrap-servers: kafka:29092
 
+app:
+  book-service:
+    url: http://book-service:8082
+
 eureka:
   client:
     service-url:

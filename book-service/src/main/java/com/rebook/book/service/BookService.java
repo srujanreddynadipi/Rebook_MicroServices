@@ -3,6 +3,7 @@ package com.rebook.book.service;
 import com.rebook.book.dto.request.BookSearchRequest;
 import com.rebook.book.dto.request.CreateBookRequest;
 import com.rebook.book.dto.request.UpdateBookRequest;
+import com.rebook.book.dto.response.BookImageResponse;
 import com.rebook.book.dto.response.BookResponse;
 import com.rebook.book.entity.Book;
 import com.rebook.book.entity.BookCategory;
@@ -391,6 +392,14 @@ public class BookService {
             response.getImages().sort(Comparator.comparing(image -> !image.isCover()));
         }
 
+        if ((response.getImageUrls() == null || response.getImageUrls().isEmpty()) && response.getImages() != null) {
+            List<String> orderedImageUrls = response.getImages().stream()
+                    .map(BookImageResponse::getImageUrl)
+                    .filter(this::hasText)
+                    .toList();
+            response.setImageUrls(orderedImageUrls);
+        }
+
         if (response.getImageUrls() != null && !response.getImageUrls().isEmpty()) {
             response.setCoverImageUrl(response.getImageUrls().get(0));
         }
@@ -409,6 +418,9 @@ public class BookService {
         for (int i = 0; i < images.size(); i++) {
             MultipartFile image = images.get(i);
             String imageUrl = s3Service.uploadFile(image, folder);
+            if (!hasText(imageUrl)) {
+                continue;
+            }
             String imageKey = extractS3KeyFromUrl(imageUrl);
 
             BookImage bookImage = BookImage.builder()

@@ -63,11 +63,20 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
             String userId = jwtUtil.extractUserId(token);
             String roles = jwtUtil.extractRoles(token);
+            String userName = jwtUtil.extractDisplayName(token);
 
-            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                    .header("X-User-Id", userId == null ? "" : userId)
-                    .header("X-User-Roles", roles == null ? "" : roles)
-                    .build();
+            ServerHttpRequest.Builder requestBuilder = exchange.getRequest().mutate();
+            if (userId != null && !userId.isBlank()) {
+                requestBuilder.header("X-User-Id", userId);
+            }
+            if (userName != null && !userName.isBlank()) {
+                requestBuilder.header("X-User-Name", userName);
+            }
+            if (roles != null && !roles.isBlank()) {
+                requestBuilder.header("X-User-Roles", roles);
+            }
+
+            ServerHttpRequest mutatedRequest = requestBuilder.build();
 
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
         };

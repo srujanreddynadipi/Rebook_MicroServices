@@ -51,6 +51,9 @@ public class JwtUtil {
         Claims claims = parseClaims(token);
         Object roles = claims.get("roles");
         if (roles == null) {
+            roles = claims.get("role");
+        }
+        if (roles == null) {
             return "";
         }
 
@@ -59,6 +62,29 @@ public class JwtUtil {
         }
 
         return String.valueOf(roles);
+    }
+
+    public String extractDisplayName(String token) {
+        Claims claims = parseClaims(token);
+        Object name = claims.get("name");
+        if (name != null && !String.valueOf(name).isBlank()) {
+            return String.valueOf(name);
+        }
+
+        Object email = claims.get("email");
+        if (email != null && !String.valueOf(email).isBlank()) {
+            String e = String.valueOf(email);
+            int at = e.indexOf('@');
+            return at > 0 ? e.substring(0, at) : e;
+        }
+
+        Object userId = claims.get("userId");
+        if (userId != null) {
+            return "User " + userId;
+        }
+
+        String subject = claims.getSubject();
+        return (subject == null || subject.isBlank()) ? "User" : "User " + subject;
     }
 
     private Claims parseClaims(String token) {

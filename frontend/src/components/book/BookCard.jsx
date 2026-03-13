@@ -27,8 +27,9 @@ const CONDITION_LABELS = {
   USED_OLD: 'Old',
 };
 
-function getInitials(name = '') {
-  return name
+function getInitials(name) {
+  const safeName = typeof name === 'string' ? name : '';
+  return safeName
     .split(' ')
     .filter(Boolean)
     .map((w) => w[0])

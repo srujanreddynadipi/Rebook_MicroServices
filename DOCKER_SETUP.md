@@ -37,10 +37,7 @@ MYSQL_ROOT_PASSWORD=root
 cd rebook-system
 
 # Build all services and start containers
-docker-compose up -d --build
-```
-
-### Option 2: Start Existing Containers
+ Option 2: Start Existing Containers
 
 ```bash
 # Start services without rebuilding
@@ -56,6 +53,8 @@ docker-compose up -d --build auth-service
 # Or just start without rebuild
 docker-compose up -d auth-service
 ```
+
+docker compose up -d --build --force-recreate book-service api-gateway
 
 ---
 

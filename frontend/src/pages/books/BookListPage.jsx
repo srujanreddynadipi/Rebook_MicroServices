@@ -47,9 +47,9 @@ function buildApiParams(filters) {
   if (filters.isDonation) params.isDonation = true;
   if (filters.isLending) params.isLending = true;
   if (filters.city) params.city = filters.city;
-  if (filters.userLatitude) params.userLatitude = filters.userLatitude;
-  if (filters.userLongitude) params.userLongitude = filters.userLongitude;
-  if (filters.userLatitude && filters.radiusKm) params.radiusKm = filters.radiusKm;
+  if (filters.userLatitude != null) params.userLatitude = filters.userLatitude;
+  if (filters.userLongitude != null) params.userLongitude = filters.userLongitude;
+  if (filters.userLatitude != null && filters.userLongitude != null && filters.radiusKm) params.radiusKm = filters.radiusKm;
   return params;
 }
 
@@ -79,8 +79,8 @@ function writeFiltersToParams(filters, keepPage = false) {
   if (filters.isDonation) p.set('isDonation', 'true');
   if (filters.isLending) p.set('isLending', 'true');
   if (filters.city) p.set('city', filters.city);
-  if (filters.userLatitude) p.set('lat', String(filters.userLatitude));
-  if (filters.userLongitude) p.set('lng', String(filters.userLongitude));
+  if (filters.userLatitude != null) p.set('lat', String(filters.userLatitude));
+  if (filters.userLongitude != null) p.set('lng', String(filters.userLongitude));
   if (filters.radiusKm !== 50) p.set('radius', String(filters.radiusKm));
   if (filters.sortBy && filters.sortBy !== 'createdAt') p.set('sortBy', filters.sortBy);
   if (keepPage && filters.page > 0) p.set('page', String(filters.page));
@@ -253,11 +253,13 @@ export default function BookListPage() {
 
   // Books with coords for map view
   const booksWithCoords = useMemo(
-    () => books.filter((b) => b.latitude != null && b.longitude != null),
+    () => books.filter((b) => Number.isFinite(b.latitude) && Number.isFinite(b.longitude)),
     [books]
   );
   const mapCenter = booksWithCoords.length > 0
     ? [booksWithCoords[0].latitude, booksWithCoords[0].longitude]
+    : filters.userLatitude != null && filters.userLongitude != null
+      ? [filters.userLatitude, filters.userLongitude]
     : [17.385, 78.4867]; // Default: Hyderabad
 
   // Filter fields only (not page/sort) for BookFilter prop
@@ -481,11 +483,35 @@ export default function BookListPage() {
                   borderRadius: 'var(--radius-card)',
                   overflow: 'hidden',
                   border: '1px solid var(--border)',
+                  position: 'relative',
                 }}
               >
+                {booksWithCoords.length === 0 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 16,
+                      left: 16,
+                      zIndex: 500,
+                      background: 'rgba(255,255,255,0.94)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 14,
+                      padding: '12px 14px',
+                      boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
+                      maxWidth: 320,
+                    }}
+                  >
+                    <p style={{ fontFamily: "'Sora', sans-serif", fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                      No mapped books yet
+                    </p>
+                    <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                      These results do not have saved latitude and longitude yet. Update the book location when listing or editing a book to place it on the map.
+                    </p>
+                  </div>
+                )}
                 <MapContainer
                   center={mapCenter}
-                  zoom={12}
+                  zoom={booksWithCoords.length > 0 ? 12 : 5}
                   style={{ width: '100%', height: '100%' }}
                 >
                   <TileLayer
