@@ -42,7 +42,7 @@ class ChatControllerTest {
 
         when(messageService.sendMessage(request, 1L)).thenReturn(response);
 
-        MessageResponse result = controller.sendMessage(request, 1L);
+        MessageResponse result = controller.sendMessage(request, "1", null);
 
         assertEquals(response, result);
         verify(messageService).sendMessage(request, 1L);
@@ -55,7 +55,7 @@ class ChatControllerTest {
 
         when(messageService.getMessagesByRequestId(99L, 3L)).thenReturn(responses);
 
-        List<MessageResponse> result = controller.getMessages(99L, 3L);
+        List<MessageResponse> result = controller.getMessages(99L, "3", null);
 
         assertEquals(1, result.size());
         verify(messageService).getMessagesByRequestId(99L, 3L);
@@ -75,7 +75,7 @@ class ChatControllerTest {
 
         when(messageService.getInbox(3L)).thenReturn(previews);
 
-        List<ChatPreview> result = controller.getInbox(3L);
+        List<ChatPreview> result = controller.getInbox("3", null);
 
         assertEquals(1, result.size());
         verify(messageService).getInbox(3L);
@@ -85,7 +85,7 @@ class ChatControllerTest {
     void markAsRead_shouldDelegateToService() {
         ChatController controller = new ChatController(messageService, messagingTemplate);
 
-        controller.markAsRead(50L, 3L);
+        controller.markAsRead(50L, "3", null);
 
         verify(messageService).markAsRead(50L, 3L);
     }

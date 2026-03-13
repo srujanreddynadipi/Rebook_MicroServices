@@ -43,7 +43,7 @@ public class RequestService {
     // Create request
     // -------------------------------------------------------------------------
 
-    public BookRequestResponse createRequest(CreateRequestDto dto, Long senderId) {
+    public BookRequestResponse createRequest(CreateRequestDto dto, Long senderId, String senderName) {
         // 1. Fetch book details from book-service
         BookDto book = fetchBook(dto.getBookId());
 
@@ -75,7 +75,9 @@ public class RequestService {
         BookRequest request = BookRequest.builder()
                 .bookId(dto.getBookId())
                 .senderId(senderId)
+                .senderName(normalizeName(senderName, senderId))
                 .receiverId(book.getOwnerId())
+                .receiverName(normalizeName(book.getOwnerName(), book.getOwnerId()))
                 .requestType(dto.getRequestType())
                 .status(RequestStatus.PENDING)
                 .noOfWeeks(dto.getNoOfWeeks())
@@ -187,13 +189,21 @@ public class RequestService {
     @Transactional(readOnly = true)
     public Page<BookRequestResponse> getSentRequests(Long userId, Pageable pageable) {
         return bookRequestRepository.findBySenderId(userId, pageable)
-                .map(r -> toResponse(r, null, null, null));
+                .map(r -> toResponse(
+                        r,
+                        normalizeName(r.getSenderName(), r.getSenderId()),
+                        normalizeName(r.getReceiverName(), r.getReceiverId()),
+                        null));
     }
 
     @Transactional(readOnly = true)
     public Page<BookRequestResponse> getReceivedRequests(Long userId, Pageable pageable) {
         return bookRequestRepository.findByReceiverId(userId, pageable)
-                .map(r -> toResponse(r, null, null, null));
+                .map(r -> toResponse(
+                        r,
+                        normalizeName(r.getSenderName(), r.getSenderId()),
+                        normalizeName(r.getReceiverName(), r.getReceiverId()),
+                        null));
     }
 
     @Transactional(readOnly = true)
@@ -280,6 +290,13 @@ public class RequestService {
         }
     }
 
+    private String normalizeName(String name, Long userId) {
+        if (name != null && !name.isBlank()) {
+            return name;
+        }
+        return userId == null ? "User" : "User " + userId;
+    }
+
     private void publishEvent(String eventType, BookRequest request, String bookTitle) {
         try {
             BookRequestEvent event = BookRequestEvent.builder()
@@ -328,5 +345,6 @@ public class RequestService {
         private String title;
         private String status;
         private Long ownerId;
+        private String ownerName;
     }
 }

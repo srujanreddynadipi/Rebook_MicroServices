@@ -32,27 +32,58 @@ public class ChatController {
         this.messagingTemplate = messagingTemplate;
     }
 
+    private Long resolveUserId(String xUserId, String userId) {
+        Long parsedXUserId = parseUserId(xUserId);
+        if (parsedXUserId != null) {
+            return parsedXUserId;
+        }
+
+        Long parsedUserId = parseUserId(userId);
+        if (parsedUserId != null) {
+            return parsedUserId;
+        }
+
+        throw new IllegalArgumentException("Missing user id header");
+    }
+
+    private Long parseUserId(String rawUserId) {
+        if (rawUserId == null || rawUserId.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Long.valueOf(rawUserId.trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("Invalid user id header", ex);
+        }
+    }
+
     @PostMapping
     public MessageResponse sendMessage(@Valid @RequestBody SendMessageRequest request,
-            @RequestHeader("userId") Long userId) {
-        return messageService.sendMessage(request, userId);
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
+            @RequestHeader(value = "userId", required = false) String userId) {
+        return messageService.sendMessage(request, resolveUserId(xUserId, userId));
     }
 
     @GetMapping("/{requestId}")
     public List<MessageResponse> getMessages(@PathVariable Long requestId,
-            @RequestHeader("userId") Long userId) {
-        return messageService.getMessagesByRequestId(requestId, userId);
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
+            @RequestHeader(value = "userId", required = false) String userId) {
+        return messageService.getMessagesByRequestId(requestId, resolveUserId(xUserId, userId));
     }
 
     @GetMapping("/inbox")
-    public List<ChatPreview> getInbox(@RequestHeader("userId") Long userId) {
-        return messageService.getInbox(userId);
+    public List<ChatPreview> getInbox(
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
+            @RequestHeader(value = "userId", required = false) String userId) {
+        return messageService.getInbox(resolveUserId(xUserId, userId));
     }
 
     @PutMapping("/{requestId}/read")
     public void markAsRead(@PathVariable Long requestId,
-            @RequestHeader("userId") Long userId) {
-        messageService.markAsRead(requestId, userId);
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
+            @RequestHeader(value = "userId", required = false) String userId) {
+        messageService.markAsRead(requestId, resolveUserId(xUserId, userId));
     }
 
     @MessageMapping("/chat.send")

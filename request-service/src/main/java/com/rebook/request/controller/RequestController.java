@@ -27,9 +27,10 @@ public class RequestController {
     @PostMapping
     public ResponseEntity<BookRequestResponse> createRequest(
             @Valid @RequestBody CreateRequestDto dto,
-            @RequestHeader("X-User-Id") Long userId) {
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-User-Name", required = false) String userName) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(requestService.createRequest(dto, userId));
+                .body(requestService.createRequest(dto, userId, userName));
     }
 
     @GetMapping("/sent")

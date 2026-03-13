@@ -189,7 +189,7 @@ export default function EditBookPage() {
       latitude: form.latitude,
       longitude: form.longitude,
     };
-    fd.append('book', JSON.stringify(bookFields));
+    fd.append('bookRequest', new Blob([JSON.stringify(bookFields)], { type: 'application/json' }));
     newImages.forEach((f) => fd.append('images', f));
     fd.append('deleteImageKeys', JSON.stringify(deletedImageKeys));
     mutation.mutate(fd);

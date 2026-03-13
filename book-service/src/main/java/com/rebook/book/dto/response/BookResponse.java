@@ -1,5 +1,7 @@
 package com.rebook.book.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -40,8 +42,12 @@ public class BookResponse {
 
     private Double longitude;
 
+    @JsonAlias("donation")
+    @JsonProperty("isDonation")
     private boolean isDonation;
 
+    @JsonAlias("lending")
+    @JsonProperty("isLending")
     private boolean isLending;
 
     private BookStatus status;

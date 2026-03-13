@@ -25,8 +25,14 @@ public class BookRequest {
     @Column(nullable = false)
     private Long senderId;
 
+    @Column(length = 120)
+    private String senderName;
+
     @Column(nullable = false)
     private Long receiverId;
+
+    @Column(length = 120)
+    private String receiverName;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

@@ -47,15 +47,15 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://rebook-eureka-server:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
 
 app:
   auth-service:
-    url: http://auth-service
+    url: http://localhost:8081
   request-service:
-    url: http://request-service
+    url: http://localhost:8083
 
 springdoc:
   api-docs:
