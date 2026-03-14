@@ -1,7 +1,34 @@
 import axios from 'axios';
 
+const resolveApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+
+  if (!envUrl) {
+    return '/';
+  }
+
+  if (typeof window === 'undefined') {
+    return envUrl;
+  }
+
+  const isDeployedHost = !['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+  try {
+    const parsed = new URL(envUrl, window.location.origin);
+    if (isDeployedHost && ['localhost', '127.0.0.1'].includes(parsed.hostname)) {
+      return '/';
+    }
+  } catch {
+    // If URL parsing fails, use raw value.
+  }
+
+  return envUrl;
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
+
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -81,8 +108,12 @@ axiosInstance.interceptors.response.use(
 
       try {
         // Attempt token refresh using raw axios (bypass our instance to avoid recursion)
+        const refreshUrl = API_BASE_URL === '/'
+          ? '/api/auth/refresh-token'
+          : `${API_BASE_URL}/api/auth/refresh-token`;
+
         const response = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/api/auth/refresh-token`,
+          refreshUrl,
           { refreshToken }
         );
 

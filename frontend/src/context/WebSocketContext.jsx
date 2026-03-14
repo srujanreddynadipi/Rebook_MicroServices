@@ -5,6 +5,33 @@ import { AuthContext } from "./AuthContext";
 
 export const WebSocketContext = createContext(null);
 
+const resolveWsUrl = () => {
+  const envUrl = import.meta.env.VITE_WS_URL;
+
+  if (!envUrl) {
+    return "/ws";
+  }
+
+  if (typeof window === "undefined") {
+    return envUrl;
+  }
+
+  const isDeployedHost = !["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+  try {
+    const parsed = new URL(envUrl, window.location.origin);
+    if (isDeployedHost && ["localhost", "127.0.0.1"].includes(parsed.hostname)) {
+      return "/ws";
+    }
+  } catch {
+    // If URL parsing fails, use raw value.
+  }
+
+  return envUrl;
+};
+
+const WS_URL = resolveWsUrl();
+
 export function WebSocketProvider({ children }) {
   const { user } = useContext(AuthContext);
 
@@ -30,7 +57,7 @@ export function WebSocketProvider({ children }) {
     const token = localStorage.getItem("accessToken");
 
     const client = new Client({
-      webSocketFactory: () => new SockJS(import.meta.env.VITE_WS_URL || "http://localhost:8084/ws"),
+      webSocketFactory: () => new SockJS(WS_URL),
       connectHeaders: { Authorization: `Bearer ${token}` },
       reconnectDelay: 5000,
 
