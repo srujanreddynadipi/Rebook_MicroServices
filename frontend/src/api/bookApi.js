@@ -72,7 +72,24 @@ export const deleteBook = (id) =>
  * @returns {Promise<BookResponse[]>}
  */
 export const getPopularBooks = () =>
-  axiosInstance.get(`${BOOKS_BASE}/popular`).then((res) => res.data);
+  axiosInstance.get(`${BOOKS_BASE}/popular`).then((res) => {
+    const payload = res.data;
+
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    // Some deployments return a paginated wrapper instead of a bare array.
+    if (Array.isArray(payload?.content)) {
+      return payload.content;
+    }
+
+    if (Array.isArray(payload?.data)) {
+      return payload.data;
+    }
+
+    return [];
+  });
 
 /**
  * Get book recommendations based on similarity
