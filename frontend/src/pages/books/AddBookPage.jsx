@@ -39,6 +39,14 @@ const CONDITIONS = [
 const STEPS = ['Details', 'Category & Type', 'Images'];
 const DEFAULT_MAP_CENTER = [17.385, 78.4867];
 
+const hasUsableCoords = (lat, lng) => (
+  Number.isFinite(lat)
+  && Number.isFinite(lng)
+  && Math.abs(lat) <= 90
+  && Math.abs(lng) <= 180
+  && !(lat === 0 && lng === 0)
+);
+
 function DraggableMarker({ position, onMove }) {
   const markerRef = useRef(null);
   const eventHandlers = useMemo(
@@ -67,6 +75,16 @@ function RecenterMap({ center }) {
   return null;
 }
 
+function MapClickSetter({ onPick }) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+
+  return null;
+}
+
 export default function AddBookPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -76,9 +94,9 @@ export default function AddBookPage() {
 
   const parsedUserLatitude = Number(user?.latitude);
   const parsedUserLongitude = Number(user?.longitude);
-  const initialLatitude = Number.isFinite(parsedUserLatitude) ? parsedUserLatitude : 0;
-  const initialLongitude = Number.isFinite(parsedUserLongitude) ? parsedUserLongitude : 0;
-  const hasInitialCoords = Number.isFinite(parsedUserLatitude) && Number.isFinite(parsedUserLongitude);
+  const hasInitialCoords = hasUsableCoords(parsedUserLatitude, parsedUserLongitude);
+  const initialLatitude = hasInitialCoords ? parsedUserLatitude : null;
+  const initialLongitude = hasInitialCoords ? parsedUserLongitude : null;
   const initialMapCenter = hasInitialCoords
     ? [initialLatitude, initialLongitude]
     : DEFAULT_MAP_CENTER;
@@ -154,8 +172,8 @@ export default function AddBookPage() {
       isbn: form.isbn, keywords: form.keywords, category: form.category,
       condition: form.condition, city: form.city,
       isDonation: form.isDonation, isLending: form.isLending,
-      latitude: Number.isFinite(form.latitude) ? form.latitude : null,
-      longitude: Number.isFinite(form.longitude) ? form.longitude : null,
+      latitude: hasUsableCoords(form.latitude, form.longitude) ? form.latitude : null,
+      longitude: hasUsableCoords(form.latitude, form.longitude) ? form.longitude : null,
     };
     fd.append('bookRequest', new Blob([JSON.stringify(bookRequest)], { type: 'application/json' }));
     images.forEach((img) => fd.append('images', img));
@@ -280,6 +298,7 @@ export default function AddBookPage() {
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
                     <RecenterMap center={mapCenter} />
+                    <MapClickSetter onPick={handleMarkerMove} />
                     <DraggableMarker
                       position={[
                         Number.isFinite(form.latitude) ? form.latitude : mapCenter[0],
