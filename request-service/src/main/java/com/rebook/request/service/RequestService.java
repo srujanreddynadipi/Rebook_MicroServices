@@ -83,7 +83,7 @@ public class RequestService {
         BookRequest request = BookRequest.builder()
                 .bookId(dto.getBookId())
                 .senderId(senderId)
-                .senderName(normalizeName(senderName, senderId))
+                .senderName(senderName) // Store as-is; toEnrichedResponse will enrich
                 .receiverId(book.getOwnerId())
             .receiverName(receiverName)
                 .requestType(dto.getRequestType())
@@ -306,7 +306,10 @@ public class RequestService {
     }
 
     private String resolveDisplayName(Long userId, String preferredName, boolean allowIdFallback) {
-        if (preferredName != null && !preferredName.isBlank()) {
+        // Check if preferredName is a generated placeholder (like "User 2" or "User")
+        boolean isGeneratedPlaceholder = preferredName != null && (preferredName.matches("^User\\s*\\d*$") || preferredName.equals("User"));
+        
+        if (!isGeneratedPlaceholder && preferredName != null && !preferredName.isBlank()) {
             return preferredName;
         }
 
