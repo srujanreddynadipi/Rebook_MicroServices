@@ -27,6 +27,10 @@ eureka:
   instance:
     prefer-ip-address: true
 
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+
 app:
   jwt:
     secret: ${APP_JWT_SECRET:cmVib29rLXNlY3JldC1rZXktMjU2LWJpdHMtbG9uZy1wbGFjZWhvbGRlcg==}

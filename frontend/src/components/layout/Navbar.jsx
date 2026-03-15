@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getUnreadCount } from '../../api/notificationApi';
 import {
   BookHeart, Search, Bell, Plus, LogOut, User,
   BookOpen, ChevronDown, Menu, X, Shield, BookMarked,
@@ -93,6 +94,22 @@ export default function Navbar() {
     if (q) navigate(`/books?keyword=${encodeURIComponent(q)}`);
     else    navigate('/books');
   };
+
+  /* ── Notification unread count ───────────────────────────────────────── */
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['unreadCount'],
+    queryFn: getUnreadCount,
+    enabled: !!user,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+
+  // Bump count when a new message arrives via WebSocket
+  useEffect(() => {
+    const handler = () => queryClient.invalidateQueries({ queryKey: ['unreadCount'] });
+    window.addEventListener('ws:message', handler);
+    return () => window.removeEventListener('ws:message', handler);
+  }, [queryClient]);
 
   const handleLogout = () => {
     logout();
@@ -242,12 +259,25 @@ export default function Navbar() {
               {/* Notifications bell */}
               <button
                 onClick={() => navigate('/notifications')}
-                style={{ ...iconBtn }}
+                style={{ ...iconBtn, position: 'relative' }}
                 title="Notifications"
                 onMouseEnter={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = navText; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(15,23,42,0.10)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.72)'; e.currentTarget.style.color = navSubtext; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(15,23,42,0.06)'; }}
               >
                 <Bell size={17} />
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: 5, right: 5,
+                    minWidth: 16, height: 16, borderRadius: 8,
+                    background: '#ef4444', color: 'white',
+                    fontSize: '0.6rem', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    lineHeight: 1, padding: '0 3px',
+                    pointerEvents: 'none',
+                  }}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
 
               {/* Messages */}

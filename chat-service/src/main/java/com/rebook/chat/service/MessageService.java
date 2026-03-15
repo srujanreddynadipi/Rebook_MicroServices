@@ -4,8 +4,11 @@ import com.rebook.chat.dto.ChatPreview;
 import com.rebook.chat.dto.MessageResponse;
 import com.rebook.chat.dto.SendMessageRequest;
 import com.rebook.chat.entity.Message;
+import com.rebook.chat.event.NewMessageEvent;
 import com.rebook.chat.mapper.MessageMapper;
 import com.rebook.chat.repository.MessageRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,18 +19,24 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@Slf4j
 public class MessageService {
+
+    private static final String CHAT_TOPIC = "chat-events";
 
     private final MessageRepository messageRepository;
     private final MessageMapper messageMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final KafkaTemplate<String, NewMessageEvent> kafkaTemplate;
 
     public MessageService(MessageRepository messageRepository,
             MessageMapper messageMapper,
-            SimpMessagingTemplate messagingTemplate) {
+            SimpMessagingTemplate messagingTemplate,
+            KafkaTemplate<String, NewMessageEvent> kafkaTemplate) {
         this.messageRepository = messageRepository;
         this.messageMapper = messageMapper;
         this.messagingTemplate = messagingTemplate;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     public MessageResponse sendMessage(SendMessageRequest request, Long senderId) {
@@ -45,6 +54,20 @@ public class MessageService {
                 request.getReceiverId().toString(),
                 "/queue/messages",
                 response);
+
+        // Publish a Kafka event so notification-service can create a NEW_MESSAGE notification
+        try {
+            NewMessageEvent event = NewMessageEvent.builder()
+                    .messageId(savedMessage.getId())
+                    .requestId(savedMessage.getRequestId())
+                    .senderId(senderId)
+                    .receiverId(savedMessage.getReceiverId())
+                    .content(savedMessage.getContent())
+                    .build();
+            kafkaTemplate.send(CHAT_TOPIC, String.valueOf(savedMessage.getId()), event);
+        } catch (Exception e) {
+            log.warn("Failed to publish chat Kafka event for message {}: {}", savedMessage.getId(), e.getMessage());
+        }
 
         return response;
     }

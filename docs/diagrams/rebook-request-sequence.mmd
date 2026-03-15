@@ -1,0 +1,41 @@
+sequenceDiagram
+    actor U as User
+    participant F as Frontend
+    participant G as API Gateway
+    participant R as Request Service
+    participant B as Book Service
+    participant K as Kafka
+    participant N as Notification Service
+    participant A as Auth Service
+    participant DB as MySQL
+    participant M as Mail Provider
+
+    U->>F: Create request for a book
+    F->>G: POST /api/requests
+    G->>G: Validate JWT
+    G->>R: Forward request with X-User-Id/X-User-Name
+
+    R->>B: GET /api/books/{bookId}
+    B-->>R: Book details
+    R->>R: Validate availability and ownership
+    R->>DB: Save BookRequest(status=PENDING)
+    R->>B: PATCH /api/books/{id}/status?status=REQUESTED
+    R->>K: Publish REQUEST_CREATED
+    R-->>G: BookRequestResponse
+    G-->>F: 201 Created
+
+    K-->>N: Consume REQUEST_CREATED
+    N->>A: Lookup sender and owner
+    A-->>N: User info
+    N->>DB: Save in-app notification
+    N->>M: Send email to owner
+
+    Note over U,F: Later, the owner can approve or reject the request
+    F->>G: PUT /api/requests/{id}/approve
+    G->>R: Forward owner action
+    R->>DB: Update BookRequest(status=APPROVED)
+    R->>B: PATCH book status to BORROWED
+    R->>K: Publish REQUEST_APPROVED
+    K-->>N: Consume REQUEST_APPROVED
+    N->>DB: Save approval notification
+    N->>M: Send approval email

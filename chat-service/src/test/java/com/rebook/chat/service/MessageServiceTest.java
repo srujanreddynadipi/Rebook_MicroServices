@@ -6,6 +6,7 @@ import com.rebook.chat.dto.SendMessageRequest;
 import com.rebook.chat.entity.Message;
 import com.rebook.chat.mapper.MessageMapper;
 import com.rebook.chat.repository.MessageRepository;
+import com.rebook.chat.event.NewMessageEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +14,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.LocalDateTime;
@@ -36,6 +38,9 @@ class MessageServiceTest {
 
     @Mock
     private SimpMessagingTemplate messagingTemplate;
+
+    @Mock
+    private KafkaTemplate<String, NewMessageEvent> kafkaTemplate;
 
     @InjectMocks
     private MessageService messageService;

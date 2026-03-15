@@ -163,9 +163,10 @@ export default function ChatWindowPage() {
       const sentViaWs = connected && wsSend(messageData);
 
       if (sentViaWs) {
-        // Primary: WebSocket
-        // The server will broadcast back via /topic/requests/{id} — handled by subscription
-        // Remove optimistic entry; the real one will arrive via WS
+        // Remove optimistic entry — the real one will arrive via WS broadcast on /topic/requests/{id}
+        queryClient.setQueryData(['messages', requestId], (prev = []) =>
+          prev.filter((m) => !m._optimistic)
+        );
       } else {
         // Fallback: REST
         const saved = await sendMessageRest(messageData);

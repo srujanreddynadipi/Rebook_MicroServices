@@ -1,0 +1,95 @@
+classDiagram
+    class User {
+        +Long id
+        +String name
+        +String email
+        +String mobile
+        +String city
+        +String pincode
+        +Double latitude
+        +Double longitude
+        +Role role
+        +boolean isBanned
+        +Double averageRating
+        +Integer totalRatings
+    }
+
+    class Book {
+        +Long id
+        +String title
+        +String author
+        +String publisher
+        +String isbn
+        +String keywords
+        +BookCategory category
+        +BookCondition condition
+        +String city
+        +Double latitude
+        +Double longitude
+        +boolean isDonation
+        +boolean isLending
+        +BookStatus status
+        +Long ownerId
+        +Integer requestCount
+    }
+
+    class BookImage {
+        +Long id
+        +String imageUrl
+        +String imageKey
+        +boolean isCover
+    }
+
+    class BookRequest {
+        +Long id
+        +Long bookId
+        +Long senderId
+        +String senderName
+        +Long receiverId
+        +String receiverName
+        +RequestType requestType
+        +RequestStatus status
+        +Integer noOfWeeks
+        +LocalDate borrowDate
+        +LocalDate dueDate
+        +ReturnStatus returnStatus
+    }
+
+    class Review {
+        +Long id
+        +Long requestId
+        +Long reviewerId
+        +Long revieweeId
+        +Integer rating
+        +String comment
+    }
+
+    class Message {
+        +Long id
+        +Long requestId
+        +Long senderId
+        +Long receiverId
+        +String content
+        +boolean isRead
+        +LocalDateTime createdAt
+    }
+
+    class Notification {
+        +Long id
+        +Long userId
+        +String title
+        +String message
+        +NotificationType type
+        +boolean isRead
+        +Long referenceId
+        +LocalDateTime createdAt
+    }
+
+    User "1" --> "0..*" Book : owns via ownerId
+    Book "1" *-- "0..*" BookImage : contains
+    User "1" --> "0..*" BookRequest : sends
+    User "1" --> "0..*" BookRequest : receives
+    Book "1" --> "0..*" BookRequest : requested for
+    BookRequest "1" --> "0..*" Message : chat thread
+    BookRequest "1" --> "0..1" Review : completion review
+    User "1" --> "0..*" Notification : receives
