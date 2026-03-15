@@ -1,5 +1,7 @@
 package com.rebook.book.service;
 
+import com.rebook.book.dto.response.UserStatsResponse;
+
 import com.rebook.book.dto.request.BookSearchRequest;
 import com.rebook.book.dto.request.CreateBookRequest;
 import com.rebook.book.dto.request.UpdateBookRequest;
@@ -480,5 +482,14 @@ public class BookService {
 
     private boolean containsIgnoreCase(String value, String keywordLower) {
         return value != null && value.toLowerCase().contains(keywordLower);
+    }
+
+    public UserStatsResponse getUserStats(Long userId) {
+        Long donatedCount = bookRepository.countByOwnerIdAndIsDonation(userId, true);
+        Long lentCount = bookRepository.countByOwnerIdAndIsLending(userId, true);
+        return new UserStatsResponse(
+            donatedCount != null ? donatedCount.intValue() : 0,
+            lentCount != null ? lentCount.intValue() : 0
+        );
     }
 }

@@ -4,6 +4,7 @@ import com.rebook.book.dto.request.BookSearchRequest;
 import com.rebook.book.dto.request.CreateBookRequest;
 import com.rebook.book.dto.request.UpdateBookRequest;
 import com.rebook.book.dto.response.BookResponse;
+import com.rebook.book.dto.response.UserStatsResponse;
 import com.rebook.book.entity.BookStatus;
 import com.rebook.book.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -93,5 +94,10 @@ public class BookController {
     public ResponseEntity<Void> updateBookStatus(@PathVariable Long id, @RequestParam BookStatus status) {
         bookService.updateBookStatus(id, status);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/users/{userId}/stats")
+    public ResponseEntity<UserStatsResponse> getUserStats(@PathVariable Long userId) {
+        return ResponseEntity.ok(bookService.getUserStats(userId));
     }
 }

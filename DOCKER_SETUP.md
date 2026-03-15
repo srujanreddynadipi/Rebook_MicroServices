@@ -1,3 +1,5 @@
+ssh -i rebook-key.pem ubuntu@13.203.12.138 // connect terminal in lap
+
 # ReBook System - Docker Setup & Startup Guide
 
 Complete guide to build, run, and verify all microservices and infrastructure components.

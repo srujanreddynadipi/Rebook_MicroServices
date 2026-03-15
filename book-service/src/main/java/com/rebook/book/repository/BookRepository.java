@@ -59,4 +59,8 @@ public interface BookRepository extends JpaRepository<Book, Long>, JpaSpecificat
     List<Object[]> findAvailableBooksWithinRadius(@Param("lat") Double lat,
             @Param("lng") Double lng,
             @Param("radiusKm") Double radiusKm);
+
+    Long countByOwnerIdAndIsDonation(Long ownerId, Boolean isDonation);
+
+    Long countByOwnerIdAndIsLending(Long ownerId, Boolean isLending);
 }

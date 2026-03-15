@@ -15,3 +15,7 @@ eureka:
     service-url:
       # "eureka-server" is the container name defined in docker-compose.yml
       defaultZone: http://eureka-server:8761/eureka/
+
+app:
+  book-service:
+    url: http://book-service:8082

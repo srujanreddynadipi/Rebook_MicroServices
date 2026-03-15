@@ -37,5 +37,9 @@ public class UserResponse {
 
     private Integer totalRatings;
 
+    private Integer totalBooksDonated;
+
+    private Integer totalBooksLent;
+
     private LocalDateTime createdAt;
 }
