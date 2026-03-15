@@ -50,10 +50,10 @@ public class GatewayConfig {
                                                 )
                                                 .uri("lb://auth-service"))
 
-                                // DELETE/PUT /api/admin/users/** — authenticated + ROLE_ADMIN
+                                // GET/DELETE/PUT /api/admin/users/** — authenticated + ROLE_ADMIN
                                 .route("auth-admin-users", r -> r
                                                 .path("/api/admin/users/**")
-                                                .and().method(HttpMethod.DELETE, HttpMethod.PUT)
+                                                .and().method(HttpMethod.GET, HttpMethod.DELETE, HttpMethod.PUT)
                                                 .filters(f -> f
                                                                 .filter(jwtAuthFilter.apply(
                                                                                 new JwtAuthenticationFilter.Config()))
