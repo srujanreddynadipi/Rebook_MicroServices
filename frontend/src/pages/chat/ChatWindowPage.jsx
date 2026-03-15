@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Send, Loader2, AlertCircle } from 'lucide-react';
 
-import { getMessages, sendMessage as sendMessageRest, markAsRead } from '../../api/chatApi';
+import { getInbox, getMessages, sendMessage as sendMessageRest, markAsRead } from '../../api/chatApi';
 import { AuthContext } from '../../context/AuthContext';
 import { WebSocketContext } from '../../context/WebSocketContext';
 import MessageBubble from '../../components/chat/MessageBubble';
@@ -17,8 +17,11 @@ export default function ChatWindowPage() {
 
   const [input, setInput]           = useState('');
   const [sending, setSending]       = useState(false);
+  const [sendError, setSendError]   = useState('');
   const bottomRef                   = useRef(null);
   const textareaRef                 = useRef(null);
+
+  const numericRequestId = requestId ? Number(requestId) : null;
 
   /* ── Load initial messages ───────────────────────────────────────────── */
   const { data: messages = [], isLoading, isError } = useQuery({
@@ -27,6 +30,26 @@ export default function ChatWindowPage() {
     enabled:  !!requestId,
     refetchOnWindowFocus: false,
   });
+
+  const { data: inbox = [] } = useQuery({
+    queryKey: ['inbox'],
+    queryFn: getInbox,
+    enabled: !!requestId,
+    staleTime: 15_000,
+  });
+
+  const resolvedReceiverId = (() => {
+    const fromInbox = inbox.find((c) => String(c.requestId) === String(requestId))?.otherUserId;
+    if (fromInbox != null) return Number(fromInbox);
+
+    const fromMessagesSender = messages.find((m) => String(m.senderId) !== String(user?.id))?.senderId;
+    if (fromMessagesSender != null) return Number(fromMessagesSender);
+
+    const fromMessagesReceiver = messages.find((m) => String(m.receiverId) !== String(user?.id))?.receiverId;
+    if (fromMessagesReceiver != null) return Number(fromMessagesReceiver);
+
+    return null;
+  })();
 
   /* ── Mark as read on open ────────────────────────────────────────────── */
   useEffect(() => {
@@ -70,8 +93,19 @@ export default function ChatWindowPage() {
     const text = input.trim();
     if (!text || sending) return;
 
+    if (!numericRequestId || !resolvedReceiverId) {
+      setSendError('Unable to identify the recipient for this chat. Please refresh and try again.');
+      return;
+    }
+
     setSending(true);
-    const messageData = { requestId, content: text };
+    setSendError('');
+
+    const messageData = {
+      requestId: numericRequestId,
+      receiverId: resolvedReceiverId,
+      content: text,
+    };
 
     // Optimistic local append
     const optimistic = {
@@ -86,9 +120,10 @@ export default function ChatWindowPage() {
     setInput('');
 
     try {
-      if (connected) {
+      const sentViaWs = connected && wsSend(messageData);
+
+      if (sentViaWs) {
         // Primary: WebSocket
-        wsSend(messageData);
         // The server will broadcast back via /topic/requests/{id} — handled by subscription
         // Remove optimistic entry; the real one will arrive via WS
       } else {
@@ -99,6 +134,7 @@ export default function ChatWindowPage() {
         );
       }
     } catch {
+      setSendError('Message failed to send. Please try again.');
       // Remove optimistic entry on failure
       queryClient.setQueryData(['messages', requestId], (prev = []) =>
         prev.filter((m) => !m._optimistic)
@@ -174,12 +210,21 @@ export default function ChatWindowPage() {
 
       {/* ── Composer ── */}
       <div
-        className="flex gap-2 items-end px-3 py-3 bg-white"
+        className="px-3 py-3 bg-white"
         style={{
           borderTop: '1px solid var(--border)',
           boxShadow: '0 -2px 12px rgba(0,0,0,0.04)',
         }}
       >
+        {sendError && (
+          <p
+            className="font-['DM_Sans'] text-xs mb-2"
+            style={{ color: 'var(--danger)' }}
+          >
+            {sendError}
+          </p>
+        )}
+        <div className="flex gap-2 items-end">
         <textarea
           ref={textareaRef}
           value={input}
@@ -221,6 +266,7 @@ export default function ChatWindowPage() {
             : <Send size={18} />
           }
         </button>
+        </div>
       </div>
     </div>
   );
