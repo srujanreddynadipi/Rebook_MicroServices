@@ -155,8 +155,6 @@ public class GatewayConfig {
                                 .route("chat-websocket", r -> r
                                                 .path("/ws/**")
                                                 .filters(f -> f
-                                                                .filter(jwtAuthFilter.apply(
-                                                                                new JwtAuthenticationFilter.Config()))
                                                                 .preserveHostHeader())
                                                 // .filters(f -> f.circuitBreaker(c -> c.setName("ws-cb")))
                                                 .uri("lb://chat-service"))

@@ -51,6 +51,11 @@ export default function BookFilter({ filters, onFilterChange }) {
   const [local, setLocal] = useState({ ...filters });
   const { coords, loading: geoLoading, error: geoError, getLocation } = useGeolocation();
 
+  // Keep local editor state in sync with URL-backed filter state.
+  useEffect(() => {
+    setLocal({ ...filters });
+  }, [filters]);
+
   // Sync geolocation coords into local state when they arrive
   useEffect(() => {
     if (coords) {

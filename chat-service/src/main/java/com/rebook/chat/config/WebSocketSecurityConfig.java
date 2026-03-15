@@ -45,11 +45,18 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
                 }
 
                 Long userId = jwtUtil.extractUserId(token);
+                if (userId == null) {
+                    throw new AccessDeniedException("JWT token does not contain a valid user id");
+                }
                 String role = jwtUtil.extractRole(token);
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
                 if (role != null && !role.isBlank()) {
                     String normalizedRole = role.startsWith("ROLE_") ? role : "ROLE_" + role;
                     authorities.add(new SimpleGrantedAuthority(normalizedRole));
+                }
+
+                if (accessor.getSessionAttributes() != null) {
+                    accessor.getSessionAttributes().put("userId", userId);
                 }
 
                 Authentication authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
