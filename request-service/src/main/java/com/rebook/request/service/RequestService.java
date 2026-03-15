@@ -187,8 +187,12 @@ public class RequestService {
     // -------------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public Page<BookRequestResponse> getSentRequests(Long userId, Pageable pageable) {
-        return bookRequestRepository.findBySenderId(userId, pageable)
+        public Page<BookRequestResponse> getSentRequests(Long userId, RequestStatus status, Pageable pageable) {
+        Page<BookRequest> requests = status == null
+            ? bookRequestRepository.findBySenderId(userId, pageable)
+            : bookRequestRepository.findBySenderIdAndStatus(userId, status, pageable);
+
+        return requests
                 .map(r -> toResponse(
                         r,
                         normalizeName(r.getSenderName(), r.getSenderId()),
@@ -197,8 +201,12 @@ public class RequestService {
     }
 
     @Transactional(readOnly = true)
-    public Page<BookRequestResponse> getReceivedRequests(Long userId, Pageable pageable) {
-        return bookRequestRepository.findByReceiverId(userId, pageable)
+        public Page<BookRequestResponse> getReceivedRequests(Long userId, RequestStatus status, Pageable pageable) {
+        Page<BookRequest> requests = status == null
+            ? bookRequestRepository.findByReceiverId(userId, pageable)
+            : bookRequestRepository.findByReceiverIdAndStatus(userId, status, pageable);
+
+        return requests
                 .map(r -> toResponse(
                         r,
                         normalizeName(r.getSenderName(), r.getSenderId()),

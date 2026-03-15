@@ -4,6 +4,7 @@ import com.rebook.request.dto.request.CreateRequestDto;
 import com.rebook.request.dto.request.UpdateReturnStatusDto;
 import com.rebook.request.dto.response.BookRequestResponse;
 import com.rebook.request.dto.response.ReturnReminderResponse;
+import com.rebook.request.entity.RequestStatus;
 import com.rebook.request.service.RequestService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -36,15 +37,17 @@ public class RequestController {
     @GetMapping("/sent")
     public ResponseEntity<Page<BookRequestResponse>> getSentRequests(
             @RequestHeader("X-User-Id") Long userId,
+            @RequestParam(value = "status", required = false) RequestStatus status,
             Pageable pageable) {
-        return ResponseEntity.ok(requestService.getSentRequests(userId, pageable));
+        return ResponseEntity.ok(requestService.getSentRequests(userId, status, pageable));
     }
 
     @GetMapping("/received")
     public ResponseEntity<Page<BookRequestResponse>> getReceivedRequests(
             @RequestHeader("X-User-Id") Long userId,
+            @RequestParam(value = "status", required = false) RequestStatus status,
             Pageable pageable) {
-        return ResponseEntity.ok(requestService.getReceivedRequests(userId, pageable));
+        return ResponseEntity.ok(requestService.getReceivedRequests(userId, status, pageable));
     }
 
     @PutMapping("/{id}/approve")

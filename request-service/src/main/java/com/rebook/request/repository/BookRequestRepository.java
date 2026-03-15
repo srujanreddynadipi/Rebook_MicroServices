@@ -15,7 +15,11 @@ public interface BookRequestRepository extends JpaRepository<BookRequest, Long> 
 
     Page<BookRequest> findBySenderId(Long senderId, Pageable pageable);
 
+    Page<BookRequest> findBySenderIdAndStatus(Long senderId, RequestStatus status, Pageable pageable);
+
     Page<BookRequest> findByReceiverId(Long receiverId, Pageable pageable);
+
+    Page<BookRequest> findByReceiverIdAndStatus(Long receiverId, RequestStatus status, Pageable pageable);
 
     Optional<BookRequest> findByBookIdAndSenderIdAndStatusIn(Long bookId, Long senderId, List<RequestStatus> statuses);
 

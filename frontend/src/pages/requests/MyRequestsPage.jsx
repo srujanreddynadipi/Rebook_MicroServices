@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { BookOpen, Clock, ChevronRight, AlertCircle, Loader2 } from 'lucide-react';
+import { BookOpen, Clock, ChevronRight, AlertCircle, Loader2, Phone, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { getSentRequests, cancelRequest } from '../../api/requestApi';
+import { getUserById } from '../../api/userApi';
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
 const STATUS_TABS = [
-  { key: '',           label: 'All'       },
   { key: 'PENDING',   label: 'Pending'   },
   { key: 'APPROVED',  label: 'Approved'  },
   { key: 'REJECTED',  label: 'Rejected'  },
@@ -32,6 +32,14 @@ function RequestCard({ req, onCancel, cancelling }) {
   const status = STATUS_CONFIG[req.status]      ?? STATUS_CONFIG.PENDING;
   const type   = TYPE_CONFIG[req.requestType]  ?? TYPE_CONFIG.DONATION;
   const isLendingApproved = req.requestType === 'LENDING' && req.status === 'APPROVED';
+  const isApproved = req.status === 'APPROVED';
+
+  const { data: ownerProfile } = useQuery({
+    queryKey: ['userProfile', req.receiverId],
+    queryFn:  () => getUserById(req.receiverId).then((res) => res.data),
+    enabled:  isApproved && !!req.receiverId,
+    staleTime: 5 * 60 * 1000,
+  });
 
   return (
     <div
@@ -134,6 +142,43 @@ function RequestCard({ req, onCancel, cancelling }) {
         </div>
       </div>
 
+      {/* Owner contact details (only when APPROVED) */}
+      {isApproved && ownerProfile && (ownerProfile.mobile || ownerProfile.email) && (
+        <div
+          className="mt-3 pt-3"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <p
+            className="font-['DM_Sans'] font-semibold text-xs mb-2"
+            style={{ color: 'var(--primary)' }}
+          >
+            Owner Contact Details
+          </p>
+          <div className="flex flex-wrap gap-4">
+            {ownerProfile.mobile && (
+              <a
+                href={`tel:${ownerProfile.mobile}`}
+                className="flex items-center gap-1.5 font-['DM_Sans'] text-sm transition-opacity hover:opacity-80"
+                style={{ color: 'var(--text-primary)', textDecoration: 'none' }}
+              >
+                <Phone size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                {ownerProfile.mobile}
+              </a>
+            )}
+            {ownerProfile.email && (
+              <a
+                href={`mailto:${ownerProfile.email}`}
+                className="flex items-center gap-1.5 font-['DM_Sans'] text-sm transition-opacity hover:opacity-80"
+                style={{ color: 'var(--text-primary)', textDecoration: 'none' }}
+              >
+                <Mail size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                {ownerProfile.email}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Cancel button (only visible when PENDING) */}
       {req.status === 'PENDING' && (
         <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
@@ -161,13 +206,13 @@ function RequestCard({ req, onCancel, cancelling }) {
 /* ── Main Page ────────────────────────────────────────────────────────────── */
 export default function MyRequestsPage() {
   const queryClient             = useQueryClient();
-  const [activeTab, setActiveTab]     = useState('');
+  const [activeTab, setActiveTab]     = useState('PENDING');
   const [page, setPage]               = useState(0);
   const [cancellingId, setCancellingId] = useState(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['sentRequests', activeTab, page],
-    queryFn:  () => getSentRequests({ ...(activeTab ? { status: activeTab } : {}), page, size: 10 }),
+    queryFn:  () => getSentRequests({ status: activeTab, page, size: 10 }),
     keepPreviousData: true,
   });
 
