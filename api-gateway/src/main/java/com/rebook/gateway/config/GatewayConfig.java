@@ -166,7 +166,7 @@ public class GatewayConfig {
                                 // GET /api/notifications/** — authenticated
                                 .route("notifications-get", r -> r
                                                 .path("/api/notifications/**")
-                                                .and().method(HttpMethod.GET)
+                                                .and().method(HttpMethod.GET, HttpMethod.PUT)
                                                 .filters(f -> f
                                                                 .filter(jwtAuthFilter.apply(
                                                                                 new JwtAuthenticationFilter.Config()))

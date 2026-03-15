@@ -36,8 +36,7 @@ public class KafkaChatConsumerConfig {
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, NewMessageEvent> chatKafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, NewMessageEvent> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
+        ConcurrentKafkaListenerContainerFactory<String, NewMessageEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(chatConsumerFactory());
         return factory;
     }

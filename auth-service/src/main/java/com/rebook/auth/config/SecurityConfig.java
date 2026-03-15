@@ -53,6 +53,9 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/refresh-token")
                         .permitAll()
+                    .requestMatchers(HttpMethod.GET,
+                        "/api/users/*")
+                    .permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api-docs/**",
                                 "/swagger-ui/**",

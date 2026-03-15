@@ -43,59 +43,99 @@ public class RequestEventConsumer {
     }
 
     private void handleRequestCreated(BookRequestEvent event) {
-        UserInfo owner = notificationService.userLookupService().getUserById(event.getReceiverId());
-        UserInfo sender = notificationService.userLookupService().getUserById(event.getSenderId());
+        UserInfo owner = safeGetUser(event.getReceiverId());
+        UserInfo sender = safeGetUser(event.getSenderId());
 
         String title = "New book request";
-        String message = sender.name() + " requested " + event.getBookTitle() + ".";
+        String senderName = sender != null ? sender.name() : fallbackName(event.getSenderId());
+        String bookTitle = fallbackBookTitle(event.getBookTitle());
+        String message = senderName + " requested " + bookTitle + ".";
 
-        notificationService.createNotification(owner.id(), title, message, NotificationType.REQUEST_RECEIVED,
+        notificationService.createNotification(event.getReceiverId(), title, message, NotificationType.REQUEST_RECEIVED,
                 event.getRequestId());
-        notificationService.emailService().sendRequestCreatedEmail(owner.email(), owner.name(), event.getBookTitle(),
-                sender.name());
+
+        if (owner != null && sender != null && owner.email() != null && !owner.email().isBlank()) {
+            notificationService.emailService().sendRequestCreatedEmail(owner.email(), owner.name(), bookTitle,
+                    sender.name());
+        }
     }
 
     private void handleRequestApproved(BookRequestEvent event) {
-        UserInfo sender = notificationService.userLookupService().getUserById(event.getSenderId());
+        UserInfo sender = safeGetUser(event.getSenderId());
 
         String title = "Request approved";
-        String message = "Your request for " + event.getBookTitle() + " was approved.";
+        String bookTitle = fallbackBookTitle(event.getBookTitle());
+        String message = "Your request for " + bookTitle + " was approved.";
 
-        notificationService.createNotification(sender.id(), title, message, NotificationType.REQUEST_APPROVED,
+        notificationService.createNotification(event.getSenderId(), title, message, NotificationType.REQUEST_APPROVED,
                 event.getRequestId());
-        notificationService.emailService().sendRequestApprovedEmail(sender.email(), sender.name(),
-                event.getBookTitle());
+
+        if (sender != null && sender.email() != null && !sender.email().isBlank()) {
+            notificationService.emailService().sendRequestApprovedEmail(sender.email(), sender.name(),
+                    bookTitle);
+        }
     }
 
     private void handleRequestRejected(BookRequestEvent event) {
-        UserInfo sender = notificationService.userLookupService().getUserById(event.getSenderId());
+        UserInfo sender = safeGetUser(event.getSenderId());
 
         String title = "Request rejected";
-        String message = "Your request for " + event.getBookTitle() + " was not approved.";
+        String bookTitle = fallbackBookTitle(event.getBookTitle());
+        String message = "Your request for " + bookTitle + " was not approved.";
 
-        notificationService.createNotification(sender.id(), title, message, NotificationType.REQUEST_REJECTED,
+        notificationService.createNotification(event.getSenderId(), title, message, NotificationType.REQUEST_REJECTED,
                 event.getRequestId());
-        notificationService.emailService().sendRequestRejectedEmail(sender.email(), sender.name(),
-                event.getBookTitle());
+
+        if (sender != null && sender.email() != null && !sender.email().isBlank()) {
+            notificationService.emailService().sendRequestRejectedEmail(sender.email(), sender.name(),
+                    bookTitle);
+        }
     }
 
     private void handleRequestReturned(BookRequestEvent event) {
-        UserInfo owner = notificationService.userLookupService().getUserById(event.getReceiverId());
+        UserInfo owner = safeGetUser(event.getReceiverId());
 
         String title = "Book returned";
-        String message = "Your book " + event.getBookTitle() + " has been marked as returned.";
+        String bookTitle = fallbackBookTitle(event.getBookTitle());
+        String message = "Your book " + bookTitle + " has been marked as returned.";
 
-        notificationService.createNotification(owner.id(), title, message, NotificationType.REQUEST_RETURNED,
+        notificationService.createNotification(event.getReceiverId(), title, message, NotificationType.REQUEST_RETURNED,
                 event.getRequestId());
-        notificationService.emailService().sendRequestReturnedEmail(owner.email(), owner.name(), event.getBookTitle());
+
+        if (owner != null && owner.email() != null && !owner.email().isBlank()) {
+            notificationService.emailService().sendRequestReturnedEmail(owner.email(), owner.name(), bookTitle);
+        }
     }
 
     private void handleRequestCancelled(BookRequestEvent event) {
-        UserInfo owner = notificationService.userLookupService().getUserById(event.getReceiverId());
-        String message = "The request for " + event.getBookTitle() + " was cancelled by the requester.";
+        String bookTitle = fallbackBookTitle(event.getBookTitle());
+        String message = "The request for " + bookTitle + " was cancelled by the requester.";
 
-        notificationService.createNotification(owner.id(), "Request cancelled", message, NotificationType.SYSTEM,
+        notificationService.createNotification(event.getReceiverId(), "Request cancelled", message, NotificationType.SYSTEM,
                 event.getRequestId());
         log.info("Request {} was cancelled by sender {}", event.getRequestId(), event.getSenderId());
+    }
+
+    private UserInfo safeGetUser(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        try {
+            return notificationService.userLookupService().getUserById(userId);
+        } catch (Exception exception) {
+            log.warn("Could not fetch user {} for notification enrichment: {}", userId, exception.getMessage());
+            return null;
+        }
+    }
+
+    private String fallbackName(Long userId) {
+        return userId == null ? "Someone" : "User #" + userId;
+    }
+
+    private String fallbackBookTitle(String bookTitle) {
+        if (bookTitle != null && !bookTitle.isBlank()) {
+            return bookTitle;
+        }
+        return "your book";
     }
 }

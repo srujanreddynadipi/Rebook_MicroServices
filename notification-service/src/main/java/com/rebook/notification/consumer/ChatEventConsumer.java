@@ -16,11 +16,7 @@ public class ChatEventConsumer {
 
     private final NotificationService notificationService;
 
-    @KafkaListener(
-            topics = "chat-events",
-            groupId = "notification-service-chat",
-            containerFactory = "chatKafkaListenerContainerFactory"
-    )
+    @KafkaListener(topics = "chat-events", groupId = "notification-service-chat", containerFactory = "chatKafkaListenerContainerFactory")
     public void consume(NewMessageEvent event) {
         if (event == null || event.getReceiverId() == null) {
             log.warn("Received null or invalid chat event");
@@ -52,8 +48,7 @@ public class ChatEventConsumer {
                     "New message from " + senderName,
                     preview != null ? preview : "(no content)",
                     NotificationType.NEW_MESSAGE,
-                    event.getRequestId()
-            );
+                    event.getRequestId());
         } catch (Exception e) {
             log.error("Failed to process chat event for message {}: {}", event.getMessageId(), e.getMessage(), e);
         }

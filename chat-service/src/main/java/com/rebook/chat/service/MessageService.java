@@ -55,7 +55,8 @@ public class MessageService {
                 "/queue/messages",
                 response);
 
-        // Publish a Kafka event so notification-service can create a NEW_MESSAGE notification
+        // Publish a Kafka event so notification-service can create a NEW_MESSAGE
+        // notification
         try {
             NewMessageEvent event = NewMessageEvent.builder()
                     .messageId(savedMessage.getId())
