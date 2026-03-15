@@ -1,7 +1,6 @@
 package com.rebook.notification.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -12,7 +11,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.rebook.notification.entity.Notification;
 import com.rebook.notification.entity.NotificationType;
@@ -47,10 +45,12 @@ class NotificationServiceTest {
     }
 
     @Test
-    void markAsReadThrowsNotFoundWhenNothingUpdated() {
+    void markAsReadIsIdempotentWhenNothingUpdated() {
         when(notificationRepository.markAsReadByIdAndUserId(5L, 9L)).thenReturn(0);
 
-        assertThrows(ResponseStatusException.class, () -> notificationService.markAsRead(5L, 9L));
+        notificationService.markAsRead(5L, 9L);
+
+        verify(notificationRepository).markAsReadByIdAndUserId(5L, 9L);
     }
 
     @Test
