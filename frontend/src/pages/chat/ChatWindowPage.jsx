@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Send, Loader2, AlertCircle } from 'lucide-react';
 
 import { getInbox, getMessages, sendMessage as sendMessageRest, markAsRead } from '../../api/chatApi';
+import { getReceivedRequests, getSentRequests } from '../../api/requestApi';
 import { AuthContext } from '../../context/AuthContext';
 import { WebSocketContext } from '../../context/WebSocketContext';
 import MessageBubble from '../../components/chat/MessageBubble';
@@ -38,7 +39,34 @@ export default function ChatWindowPage() {
     staleTime: 15_000,
   });
 
+  const { data: sentRequestsPage } = useQuery({
+    queryKey: ['sentRequests', 'APPROVED', 'chat-recipient'],
+    queryFn: () => getSentRequests({ status: 'APPROVED', page: 0, size: 500 }),
+    enabled: !!requestId,
+    staleTime: 30_000,
+  });
+
+  const { data: receivedRequestsPage } = useQuery({
+    queryKey: ['receivedRequests', 'APPROVED', 'chat-recipient'],
+    queryFn: () => getReceivedRequests({ status: 'APPROVED', page: 0, size: 500 }),
+    enabled: !!requestId,
+    staleTime: 30_000,
+  });
+
+  const sentRequests = sentRequestsPage?.content ?? [];
+  const receivedRequests = receivedRequestsPage?.content ?? [];
+  const matchingSentRequest = sentRequests.find((req) => String(req.id) === String(requestId));
+  const matchingReceivedRequest = receivedRequests.find((req) => String(req.id) === String(requestId));
+
   const resolvedReceiverId = (() => {
+    if (matchingSentRequest?.receiverId != null) {
+      return Number(matchingSentRequest.receiverId);
+    }
+
+    if (matchingReceivedRequest?.senderId != null) {
+      return Number(matchingReceivedRequest.senderId);
+    }
+
     const fromInbox = inbox.find((c) => String(c.requestId) === String(requestId))?.otherUserId;
     if (fromInbox != null) return Number(fromInbox);
 
@@ -94,7 +122,7 @@ export default function ChatWindowPage() {
     if (!text || sending) return;
 
     if (!numericRequestId || !resolvedReceiverId) {
-      setSendError('Unable to identify the recipient for this chat. Please refresh and try again.');
+      setSendError('Unable to identify the recipient for this chat yet. Please wait a moment and try again.');
       return;
     }
 
