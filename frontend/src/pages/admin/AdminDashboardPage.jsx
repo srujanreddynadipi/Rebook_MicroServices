@@ -129,9 +129,10 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const users        = data?.content       || [];
-  const totalPages   = data?.totalPages    || 0;
-  const totalElements = data?.totalElements ?? 0;
+  const pageData = data?.content ? data : (data?.data ?? null);
+  const users        = pageData?.content       || [];
+  const totalPages   = pageData?.totalPages    || 0;
+  const totalElements = pageData?.totalElements ?? 0;
   const bannedCount  = users.filter(u => u.isBanned).length;
   const activeCount  = users.filter(u => !u.isBanned).length;
 

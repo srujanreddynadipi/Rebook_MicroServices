@@ -14,7 +14,7 @@ export const updateProfile = (data) =>
 
 // Admin only — these will return 403 for ROLE_USER tokens
 export const getAllUsers = (params) =>
-  axiosInstance.get('/api/admin/users', { params });
+  axiosInstance.get('/api/admin/users', { params }).then((res) => res.data);
 
 export const banUser = (id) =>
   axiosInstance.put(`/api/admin/users/${id}/ban`);
