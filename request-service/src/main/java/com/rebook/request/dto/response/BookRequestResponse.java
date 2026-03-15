@@ -27,4 +27,5 @@ public class BookRequestResponse {
     private String senderName;
     private String receiverName;
     private String bookTitle;
+    private String bookCoverImageUrl;
 }

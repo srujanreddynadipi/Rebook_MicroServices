@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { BookOpen, Clock, ChevronRight, AlertCircle, Loader2, Phone, Mail } from 'lucide-react';
+import { BookOpen, Clock, ChevronRight, AlertCircle, Loader2, Phone, Mail, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { getSentRequests, cancelRequest } from '../../api/requestApi';
@@ -176,6 +176,19 @@ function RequestCard({ req, onCancel, cancelling }) {
               </a>
             )}
           </div>
+        </div>
+      )}
+
+      {isApproved && (
+        <div className="mt-3" style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+          <Link
+            to={`/chat/${req.id}`}
+            className="inline-flex items-center gap-2 font-['DM_Sans'] font-semibold text-sm text-white py-2 px-3 rounded-lg transition-opacity hover:opacity-90"
+            style={{ background: 'var(--primary)', textDecoration: 'none' }}
+          >
+            <MessageCircle size={15} />
+            Chat with Owner
+          </Link>
         </div>
       )}
 

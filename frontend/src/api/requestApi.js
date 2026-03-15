@@ -9,12 +9,18 @@ const normalizeRequest = (item) => ({
     item.requesterName
     ?? item.senderName
     ?? item.requester_name
-    ?? (item.senderId ? `User ${item.senderId}` : 'User'),
+    ?? 'Unknown User',
   ownerName:
     item.ownerName
     ?? item.receiverName
     ?? item.owner_name
-    ?? (item.receiverId ? `User ${item.receiverId}` : 'User'),
+    ?? 'Unknown User',
+  bookCoverImageUrl:
+    item.bookCoverImageUrl
+    ?? item.coverImageUrl
+    ?? item.book?.coverImageUrl
+    ?? item.book?.imageUrls?.[0]
+    ?? null,
 });
 
 const normalizePage = (pageData) => {

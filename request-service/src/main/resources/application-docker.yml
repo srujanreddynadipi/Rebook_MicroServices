@@ -7,6 +7,8 @@ spring:
 app:
   book-service:
     url: http://book-service:8082
+  auth-service:
+    url: http://auth-service:8081
 
 eureka:
   client:

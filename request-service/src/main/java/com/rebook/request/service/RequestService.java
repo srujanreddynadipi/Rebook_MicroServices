@@ -39,6 +39,9 @@ public class RequestService {
     @Value("${app.book-service.url}")
     private String bookServiceUrl;
 
+    @Value("${app.auth-service.url:http://localhost:8081}")
+    private String authServiceUrl;
+
     // -------------------------------------------------------------------------
     // Create request
     // -------------------------------------------------------------------------
@@ -72,12 +75,17 @@ public class RequestService {
         }
 
         // 6. Persist request
+        String receiverName = resolveDisplayName(
+            book.getOwnerId(),
+            book.getOwnerName(),
+            false);
+
         BookRequest request = BookRequest.builder()
                 .bookId(dto.getBookId())
                 .senderId(senderId)
                 .senderName(normalizeName(senderName, senderId))
                 .receiverId(book.getOwnerId())
-                .receiverName(normalizeName(book.getOwnerName(), book.getOwnerId()))
+            .receiverName(receiverName)
                 .requestType(dto.getRequestType())
                 .status(RequestStatus.PENDING)
                 .noOfWeeks(dto.getNoOfWeeks())
@@ -92,7 +100,7 @@ public class RequestService {
         // 8. Publish Kafka event
         publishEvent("REQUEST_CREATED", request, book.getTitle());
 
-        return toResponse(request, null, null, book.getTitle());
+        return toEnrichedResponse(request, book);
     }
 
     // -------------------------------------------------------------------------
@@ -118,7 +126,7 @@ public class RequestService {
         BookDto book = fetchBookQuietly(request.getBookId());
         publishEvent("REQUEST_APPROVED", request, book != null ? book.getTitle() : null);
 
-        return toResponse(request, null, null, book != null ? book.getTitle() : null);
+        return toEnrichedResponse(request, book);
     }
 
     // -------------------------------------------------------------------------
@@ -138,7 +146,7 @@ public class RequestService {
         BookDto book = fetchBookQuietly(request.getBookId());
         publishEvent("REQUEST_REJECTED", request, book != null ? book.getTitle() : null);
 
-        return toResponse(request, null, null, book != null ? book.getTitle() : null);
+        return toEnrichedResponse(request, book);
     }
 
     // -------------------------------------------------------------------------
@@ -158,7 +166,7 @@ public class RequestService {
         BookDto book = fetchBookQuietly(request.getBookId());
         publishEvent("REQUEST_CANCELLED", request, book != null ? book.getTitle() : null);
 
-        return toResponse(request, null, null, book != null ? book.getTitle() : null);
+        return toEnrichedResponse(request, book);
     }
 
     // -------------------------------------------------------------------------
@@ -179,7 +187,7 @@ public class RequestService {
             publishEvent("REQUEST_RETURNED", request, book != null ? book.getTitle() : null);
         }
 
-        return toResponse(request, null, null, null);
+        return toEnrichedResponse(request, fetchBookQuietly(request.getBookId()));
     }
 
     // -------------------------------------------------------------------------
@@ -187,31 +195,23 @@ public class RequestService {
     // -------------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-        public Page<BookRequestResponse> getSentRequests(Long userId, RequestStatus status, Pageable pageable) {
+    public Page<BookRequestResponse> getSentRequests(Long userId, RequestStatus status, Pageable pageable) {
         Page<BookRequest> requests = status == null
-            ? bookRequestRepository.findBySenderId(userId, pageable)
-            : bookRequestRepository.findBySenderIdAndStatus(userId, status, pageable);
+                ? bookRequestRepository.findBySenderId(userId, pageable)
+                : bookRequestRepository.findBySenderIdAndStatus(userId, status, pageable);
 
         return requests
-                .map(r -> toResponse(
-                        r,
-                        normalizeName(r.getSenderName(), r.getSenderId()),
-                        normalizeName(r.getReceiverName(), r.getReceiverId()),
-                        null));
+                .map(r -> toEnrichedResponse(r, fetchBookQuietly(r.getBookId())));
     }
 
     @Transactional(readOnly = true)
-        public Page<BookRequestResponse> getReceivedRequests(Long userId, RequestStatus status, Pageable pageable) {
+    public Page<BookRequestResponse> getReceivedRequests(Long userId, RequestStatus status, Pageable pageable) {
         Page<BookRequest> requests = status == null
-            ? bookRequestRepository.findByReceiverId(userId, pageable)
-            : bookRequestRepository.findByReceiverIdAndStatus(userId, status, pageable);
+                ? bookRequestRepository.findByReceiverId(userId, pageable)
+                : bookRequestRepository.findByReceiverIdAndStatus(userId, status, pageable);
 
         return requests
-                .map(r -> toResponse(
-                        r,
-                        normalizeName(r.getSenderName(), r.getSenderId()),
-                        normalizeName(r.getReceiverName(), r.getReceiverId()),
-                        null));
+                .map(r -> toEnrichedResponse(r, fetchBookQuietly(r.getBookId())));
     }
 
     @Transactional(readOnly = true)
@@ -305,6 +305,23 @@ public class RequestService {
         return userId == null ? "User" : "User " + userId;
     }
 
+    private String resolveDisplayName(Long userId, String preferredName, boolean allowIdFallback) {
+        if (preferredName != null && !preferredName.isBlank()) {
+            return preferredName;
+        }
+
+        UserDto user = fetchUserQuietly(userId);
+        if (user != null && user.getName() != null && !user.getName().isBlank()) {
+            return user.getName();
+        }
+
+        if (allowIdFallback) {
+            return normalizeName(preferredName, userId);
+        }
+
+        return "Unknown User";
+    }
+
     private void publishEvent(String eventType, BookRequest request, String bookTitle) {
         try {
             BookRequestEvent event = BookRequestEvent.builder()
@@ -324,7 +341,7 @@ public class RequestService {
     }
 
     private BookRequestResponse toResponse(BookRequest r, String senderName,
-            String receiverName, String bookTitle) {
+            String receiverName, String bookTitle, String bookCoverImageUrl) {
         BookRequestResponse res = new BookRequestResponse();
         res.setId(r.getId());
         res.setBookId(r.getBookId());
@@ -340,7 +357,38 @@ public class RequestService {
         res.setSenderName(senderName);
         res.setReceiverName(receiverName);
         res.setBookTitle(bookTitle);
+        res.setBookCoverImageUrl(bookCoverImageUrl);
         return res;
+    }
+
+    private BookRequestResponse toEnrichedResponse(BookRequest request, BookDto book) {
+        String senderName = resolveDisplayName(request.getSenderId(), request.getSenderName(), false);
+        String receiverName = resolveDisplayName(request.getReceiverId(), request.getReceiverName(), false);
+        String bookTitle = book != null && book.getTitle() != null ? book.getTitle() : null;
+        String bookCoverImageUrl = book != null ? book.getCoverImageUrl() : null;
+
+        return toResponse(request, senderName, receiverName, bookTitle, bookCoverImageUrl);
+    }
+
+    private UserDto fetchUser(Long userId) {
+        String url = authServiceUrl + "/api/users/" + userId;
+        ResponseEntity<UserDto> response = restTemplate.getForEntity(url, UserDto.class);
+        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            throw new jakarta.persistence.EntityNotFoundException("User not found: " + userId);
+        }
+        return response.getBody();
+    }
+
+    private UserDto fetchUserQuietly(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        try {
+            return fetchUser(userId);
+        } catch (Exception e) {
+            log.warn("Could not fetch user {}: {}", userId, e.getMessage());
+            return null;
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -354,5 +402,12 @@ public class RequestService {
         private String status;
         private Long ownerId;
         private String ownerName;
+        private String coverImageUrl;
+    }
+
+    @lombok.Data
+    static class UserDto {
+        private Long id;
+        private String name;
     }
 }
