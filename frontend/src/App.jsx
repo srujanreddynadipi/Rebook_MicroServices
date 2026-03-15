@@ -61,6 +61,7 @@ function App() {
               <Route path="/requests/sent" element={<MyRequestsPage />} />
               <Route path="/requests/received" element={<IncomingRequestsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/users/:userId" element={<ProfilePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
 
               {/* Chat: nested route so ChatPage can use <Outlet /> */}

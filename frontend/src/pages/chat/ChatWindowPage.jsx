@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef, useContext, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Send, Loader2, AlertCircle } from 'lucide-react';
 
 import { getInbox, getMessages, sendMessage as sendMessageRest, markAsRead } from '../../api/chatApi';
 import { getReceivedRequests, getSentRequests } from '../../api/requestApi';
+import { getUserById } from '../../api/userApi';
 import { AuthContext } from '../../context/AuthContext';
 import { WebSocketContext } from '../../context/WebSocketContext';
 import MessageBubble from '../../components/chat/MessageBubble';
+import { getInitials } from '../../utils/helpers';
 
 /* ── ChatWindowPage ──────────────────────────────────────────────────────── */
 export default function ChatWindowPage() {
@@ -78,6 +80,16 @@ export default function ChatWindowPage() {
 
     return null;
   })();
+
+  const { data: otherUserProfile } = useQuery({
+    queryKey: ['userProfile', resolvedReceiverId],
+    queryFn: () => getUserById(resolvedReceiverId).then((res) => res.data),
+    enabled: !!resolvedReceiverId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const otherUserName = otherUserProfile?.name || (resolvedReceiverId ? `User #${resolvedReceiverId}` : 'User');
+  const otherUserInitial = getInitials(otherUserName)[0] || 'U';
 
   /* ── Mark as read on open ────────────────────────────────────────────── */
   useEffect(() => {
@@ -207,6 +219,33 @@ export default function ChatWindowPage() {
       className="flex flex-col h-full"
       style={{ background: 'var(--bg-page)' }}
     >
+      <div
+        className="px-4 py-3 bg-white flex items-center justify-between"
+        style={{ borderBottom: '1px solid var(--border)' }}
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className="rounded-full text-white font-['DM_Sans'] font-bold flex items-center justify-center"
+            style={{ width: 34, height: 34, background: 'var(--secondary)', fontSize: '0.9rem' }}
+          >
+            {otherUserInitial}
+          </div>
+          {resolvedReceiverId ? (
+            <Link
+              to={`/users/${resolvedReceiverId}`}
+              className="font-['Sora'] font-semibold truncate hover:underline"
+              style={{ color: 'var(--text-primary)', fontSize: '0.95rem', textDecorationColor: 'var(--primary)' }}
+            >
+              {otherUserName}
+            </Link>
+          ) : (
+            <p className="font-['Sora'] font-semibold truncate" style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+              {otherUserName}
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* ── Message list ── */}
       <div
         className="flex-1 overflow-y-auto py-4"

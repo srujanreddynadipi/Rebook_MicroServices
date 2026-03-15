@@ -1,11 +1,13 @@
 import { useState, useContext } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams, Outlet } from 'react-router-dom';
+import { Link, useNavigate, useParams, Outlet } from 'react-router-dom';
 import { MessageCircle, Loader2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 
 import { getInbox } from '../../api/chatApi';
+import { getUserById } from '../../api/userApi';
 import { AuthContext } from '../../context/AuthContext';
 import { WebSocketContext } from '../../context/WebSocketContext';
+import { formatChatTime, getInitials } from '../../utils/helpers';
 
 /* ── Skeleton inbox item ─────────────────────────────────────────────────── */
 function InboxSkeleton() {
@@ -22,13 +24,17 @@ function InboxSkeleton() {
 
 /* ── Single inbox row ────────────────────────────────────────────────────── */
 function InboxItem({ convo, isActive, onClick }) {
-  const timeLabel = convo.lastMessageAt
-    ? new Date(convo.lastMessageAt).toLocaleTimeString('en-IN', {
-        hour: '2-digit', minute: '2-digit', hour12: true,
-      })
-    : '';
+  const { data: profile } = useQuery({
+    queryKey: ['userProfile', convo.otherUserId],
+    queryFn: () => getUserById(convo.otherUserId).then((res) => res.data),
+    enabled: !!convo.otherUserId,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const initial = (convo.otherUserName ?? 'U')[0].toUpperCase();
+  const userName = profile?.name || convo.otherUserName || (convo.otherUserId ? `User #${convo.otherUserId}` : 'User');
+  const timeLabel = formatChatTime(convo.lastMessageTime ?? convo.lastMessageAt);
+
+  const initial = getInitials(userName)[0] || 'U';
 
   return (
     <button
@@ -63,7 +69,14 @@ function InboxItem({ convo, isActive, onClick }) {
               fontSize: '0.9375rem',
             }}
           >
-            {convo.otherUserName ?? 'User'}
+            <Link
+              to={`/users/${convo.otherUserId}`}
+              onClick={(e) => e.stopPropagation()}
+              style={{ color: 'inherit', textDecoration: 'none' }}
+              className="hover:underline"
+            >
+              {userName}
+            </Link>
           </p>
           <span
             className="font-['DM_Sans'] text-xs flex-shrink-0"

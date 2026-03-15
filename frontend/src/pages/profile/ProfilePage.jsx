@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { User, MapPin, Phone, Mail, Star, Save, BookOpen, Crosshair } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -61,12 +62,18 @@ function Stars({ rating = 0 }) {
 
 export default function ProfilePage() {
   const { user, logout, refreshUser } = useAuth();
+  const { userId: routeUserId } = useParams();
   const queryClient = useQueryClient();
   const { coords, loading: geoLoading, getLocation } = useGeolocation();
 
+  const viewedUserId = routeUserId ? Number(routeUserId) : null;
+  const isOwnProfile = !viewedUserId || String(viewedUserId) === String(user?.id);
+
   const { data: profile, isLoading } = useQuery({
-    queryKey: ['profile'],
-    queryFn: userApi.getMyProfile,
+    queryKey: ['profile', viewedUserId ?? 'me'],
+    queryFn: isOwnProfile
+      ? userApi.getMyProfile
+      : () => userApi.getUserById(viewedUserId).then((res) => res.data),
   });
 
   const [editing, setEditing] = useState(false);
@@ -103,7 +110,7 @@ export default function ProfilePage() {
     mutationFn: (data) => userApi.updateProfile(data),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
-      if (refreshUser && user?.id) await refreshUser(user.id);
+      if (isOwnProfile && refreshUser && user?.id) await refreshUser(user.id);
       toast.success('Profile updated');
       setEditing(false);
       setForm(null);
@@ -201,19 +208,21 @@ export default function ProfilePage() {
             </div>
 
             {/* Logout */}
-            <button onClick={logout}
-              className="w-full flex items-center justify-center gap-2 border-none cursor-pointer"
-              style={{
-                height: 48, borderRadius: 'var(--radius-btn)',
-                background: '#fff', border: '1.5px solid var(--danger)', color: 'var(--danger)',
-                fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: '0.9375rem',
-                transition: 'all 0.2s',
-              }}
-              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,77,79,0.06)'; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}
-            >
-              Logout
-            </button>
+            {isOwnProfile && (
+              <button onClick={logout}
+                className="w-full flex items-center justify-center gap-2 border-none cursor-pointer"
+                style={{
+                  height: 48, borderRadius: 'var(--radius-btn)',
+                  background: '#fff', border: '1.5px solid var(--danger)', color: 'var(--danger)',
+                  fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: '0.9375rem',
+                  transition: 'all 0.2s',
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,77,79,0.06)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}
+              >
+                Logout
+              </button>
+            )}
           </div>
 
           {/* Right Column — Details / Edit Form */}
@@ -223,7 +232,7 @@ export default function ProfilePage() {
                 <h3 style={{ fontFamily: "'Sora', sans-serif", fontWeight: 600, fontSize: '1.125rem', color: 'var(--text-primary)', margin: 0 }}>
                   Profile Details
                 </h3>
-                {!editing && (
+                {isOwnProfile && !editing && (
                   <button onClick={() => setEditing(true)}
                     className="flex items-center gap-1.5 border-none cursor-pointer"
                     style={{
@@ -236,7 +245,7 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {!editing ? (
+              {!editing || !isOwnProfile ? (
                 <div className="flex flex-col gap-4">
                   <InfoRow icon={<User size={18} />} label="Name" value={profile?.name} />
                   <InfoRow icon={<Mail size={18} />} label="Email" value={profile?.email} />

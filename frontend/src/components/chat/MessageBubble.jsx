@@ -1,5 +1,6 @@
 import { useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
+import { formatChatTime } from '../../utils/helpers';
 
 /**
  * MessageBubble
@@ -8,13 +9,7 @@ import { AuthContext } from '../../context/AuthContext';
  *   isOwn    — bool: true if the logged-in user sent this
  */
 export default function MessageBubble({ message, isOwn }) {
-  const timeLabel = message.createdAt
-    ? new Date(message.createdAt).toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })
-    : '';
+  const timeLabel = formatChatTime(message.createdAt);
 
   return (
     <div

@@ -54,7 +54,9 @@ export function buildQueryString(params = {}) {
 }
 
 export function formatTimeAgo(dateString) {
-  const diff = Date.now() - new Date(dateString).getTime()
+  const date = parseApiDate(dateString)
+  if (!date) return ''
+  const diff = Date.now() - date.getTime()
   const seconds = Math.floor(diff / 1000)
   if (seconds < 60) return 'just now'
   const minutes = Math.floor(seconds / 60)
@@ -64,6 +66,38 @@ export function formatTimeAgo(dateString) {
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`
   return formatDate(dateString)
+}
+
+export function parseApiDate(value) {
+  if (!value) return null
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+
+  if (typeof value !== 'string') {
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(trimmed)
+  const normalized = hasTimezone ? trimmed : `${trimmed}Z`
+  const parsed = new Date(normalized)
+
+  if (!Number.isNaN(parsed.getTime())) return parsed
+
+  const fallback = new Date(trimmed)
+  return Number.isNaN(fallback.getTime()) ? null : fallback
+}
+
+export function formatChatTime(value, locale = 'en-IN') {
+  const date = parseApiDate(value)
+  if (!date) return ''
+  return date.toLocaleTimeString(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
 }
 
 export function getInitials(name) {
