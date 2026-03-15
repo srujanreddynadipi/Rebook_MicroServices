@@ -151,9 +151,13 @@ public class GatewayConfig {
                                                 )
                                                 .uri("lb://chat-service"))
 
-                                // /ws/** — WebSocket, no JWT (auth handled inside chat-service)
+                                // /ws/** — WebSocket with JWT authentication
                                 .route("chat-websocket", r -> r
                                                 .path("/ws/**")
+                                                .filters(f -> f
+                                                                .filter(jwtAuthFilter.apply(
+                                                                                new JwtAuthenticationFilter.Config()))
+                                                                .preserveHostHeader())
                                                 // .filters(f -> f.circuitBreaker(c -> c.setName("ws-cb")))
                                                 .uri("lb://chat-service"))
 

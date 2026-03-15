@@ -7,6 +7,7 @@ import com.rebook.chat.service.MessageService;
 import jakarta.validation.Valid;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -88,8 +89,13 @@ public class ChatController {
 
     @MessageMapping("/chat.send")
     public MessageResponse handleWebSocketMessage(@Valid @Payload SendMessageRequest request,
-            Principal principal) {
-        Long senderId = Long.parseLong(principal.getName());
+            SimpMessageHeaderAccessor headerAccessor) {
+        // Extract user ID from WebSocket session attributes (set by WebSocketJwtInterceptor)
+        Long senderId = (Long) headerAccessor.getSessionAttributes().get("userId");
+        if (senderId == null) {
+            throw new IllegalArgumentException("User ID not found in WebSocket session");
+        }
+
         MessageResponse response = messageService.sendMessage(request, senderId);
 
         messagingTemplate.convertAndSend(

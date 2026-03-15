@@ -27,8 +27,8 @@ public class NotificationController {
 
     @GetMapping
     public Page<NotificationResponse> getMyNotifications(
-            @RequestHeader(value = "userId", required = false) Long userId,
-            @RequestHeader(value = "X-User-Id", required = false) Long xUserId,
+            @RequestHeader(value = "userId", required = false) String userId,
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
             Pageable pageable) {
         return notificationService.getNotificationsForUser(resolveUserId(userId, xUserId), pageable)
                 .map(notificationMapper::toResponse);
@@ -36,32 +36,36 @@ public class NotificationController {
 
     @GetMapping("/unread-count")
     public long getUnreadCount(
-            @RequestHeader(value = "userId", required = false) Long userId,
-            @RequestHeader(value = "X-User-Id", required = false) Long xUserId) {
+            @RequestHeader(value = "userId", required = false) String userId,
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId) {
         return notificationService.getUnreadCount(resolveUserId(userId, xUserId));
     }
 
     @PutMapping("/{id}/read")
     public void markAsRead(
             @PathVariable Long id,
-            @RequestHeader(value = "userId", required = false) Long userId,
-            @RequestHeader(value = "X-User-Id", required = false) Long xUserId) {
+            @RequestHeader(value = "userId", required = false) String userId,
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId) {
         notificationService.markAsRead(id, resolveUserId(userId, xUserId));
     }
 
     @PutMapping("/read-all")
     public void markAllAsRead(
-            @RequestHeader(value = "userId", required = false) Long userId,
-            @RequestHeader(value = "X-User-Id", required = false) Long xUserId) {
+            @RequestHeader(value = "userId", required = false) String userId,
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId) {
         notificationService.markAllAsRead(resolveUserId(userId, xUserId));
     }
 
-    private Long resolveUserId(Long userId, Long xUserId) {
-        if (userId != null) {
-            return userId;
-        }
-        if (xUserId != null) {
-            return xUserId;
+    private Long resolveUserId(String userId, String xUserId) {
+        try {
+            if (userId != null && !userId.isBlank()) {
+                return Long.parseLong(userId);
+            }
+            if (xUserId != null && !xUserId.isBlank()) {
+                return Long.parseLong(xUserId);
+            }
+        } catch (NumberFormatException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid user id format", e);
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing user id header");
     }
