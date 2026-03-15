@@ -81,10 +81,27 @@ export function parseApiDate(value) {
   if (!trimmed) return null
 
   const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(trimmed)
-  const normalized = hasTimezone ? trimmed : `${trimmed}Z`
-  const parsed = new Date(normalized)
+  if (hasTimezone) {
+    const zoned = new Date(trimmed)
+    return Number.isNaN(zoned.getTime()) ? null : zoned
+  }
 
-  if (!Number.isNaN(parsed.getTime())) return parsed
+  // Some services send timezone-less timestamps in UTC, others in local server time.
+  // Try both interpretations and pick the one closest to current time to avoid fixed 5h offsets.
+  const asLocal = new Date(trimmed)
+  const asUtc = new Date(`${trimmed}Z`)
+  const localOk = !Number.isNaN(asLocal.getTime())
+  const utcOk = !Number.isNaN(asUtc.getTime())
+
+  if (localOk && utcOk) {
+    const now = Date.now()
+    const localDiff = Math.abs(now - asLocal.getTime())
+    const utcDiff = Math.abs(now - asUtc.getTime())
+    return localDiff <= utcDiff ? asLocal : asUtc
+  }
+
+  if (localOk) return asLocal
+  if (utcOk) return asUtc
 
   const fallback = new Date(trimmed)
   return Number.isNaN(fallback.getTime()) ? null : fallback

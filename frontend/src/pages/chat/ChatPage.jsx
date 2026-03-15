@@ -235,10 +235,10 @@ export default function ChatPage() {
   return (
     <div
       style={{
-        height: '100vh',
-        paddingTop: 64,        // navbar height
+        height: 'calc(100vh - 72px)',
         display: 'flex',
         background: 'var(--bg-page)',
+        overflow: 'hidden',
       }}
     >
       {/* ── Desktop: side-by-side ── */}

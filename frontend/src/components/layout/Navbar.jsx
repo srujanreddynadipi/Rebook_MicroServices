@@ -95,6 +95,11 @@ export default function Navbar() {
     else    navigate('/books');
   };
 
+  const navigateTop = (path) => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    navigate(path);
+  };
+
   /* ── Notification unread count ───────────────────────────────────────── */
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ['unreadCount'],
@@ -258,7 +263,7 @@ export default function Navbar() {
 
               {/* Notifications bell */}
               <button
-                onClick={() => navigate('/notifications')}
+                onClick={() => navigateTop('/notifications')}
                 style={{ ...iconBtn, position: 'relative' }}
                 title="Notifications"
                 onMouseEnter={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = navText; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(15,23,42,0.10)'; }}
@@ -282,7 +287,7 @@ export default function Navbar() {
 
               {/* Messages */}
               <button
-                onClick={() => navigate('/chat')}
+                onClick={() => navigateTop('/chat')}
                 style={{ ...iconBtn }}
                 title="Messages"
                 onMouseEnter={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = navText; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(15,23,42,0.10)'; }}

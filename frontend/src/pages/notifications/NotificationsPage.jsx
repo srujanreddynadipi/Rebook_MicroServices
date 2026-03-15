@@ -4,37 +4,50 @@ import { CheckCircle, XCircle, BookOpen, Clock, MessageSquare, Book, Bell, Chevr
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import * as notificationApi from '../../api/notificationApi';
+import { parseApiDate } from '../../utils/helpers';
 
 const ICONS = {
-  REQUEST_ACCEPTED: { icon: CheckCircle, color: '#22C55E' },
+  REQUEST_APPROVED: { icon: CheckCircle, color: '#22C55E' },
+  REQUEST_RECEIVED: { icon: BookOpen, color: 'var(--primary)' },
   REQUEST_REJECTED: { icon: XCircle, color: 'var(--danger)' },
-  NEW_REQUEST: { icon: BookOpen, color: 'var(--primary)' },
-  REQUEST_PENDING: { icon: Clock, color: '#F59E0B' },
+  REQUEST_RETURNED: { icon: Clock, color: '#F59E0B' },
   NEW_MESSAGE: { icon: MessageSquare, color: '#8B5CF6' },
   BOOK_AVAILABLE: { icon: Book, color: 'var(--accent-orange)' },
   DEFAULT: { icon: Bell, color: 'var(--text-muted)' },
 };
 
-function formatTimeAgo(dateStr) {
-  const now = Date.now();
-  const d = new Date(dateStr).getTime();
-  const diff = Math.max(0, now - d);
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
-}
-
 function getNavPath(n) {
   const t = n.type || '';
+  if (t.includes('MESSAGE') && n.referenceId) return `/chat/${n.referenceId}`;
   if (t.includes('MESSAGE')) return '/chat';
-  if (t.includes('REQUEST') && n.referenceId) return `/requests`;
+  if (t.includes('REQUEST') && n.referenceId) return `/requests/received`;
+  if (t.includes('REQUEST')) return `/requests/received`;
   if (t.includes('BOOK') && n.referenceId) return `/books/${n.referenceId}`;
   return null;
+}
+
+function formatNotificationTime(dateValue) {
+  const date = parseApiDate(dateValue);
+  if (!date) return '';
+
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+
+  if (isToday) {
+    return date.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
+
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
 export default function NotificationsPage() {
@@ -49,6 +62,12 @@ export default function NotificationsPage() {
     keepPreviousData: true,
   });
 
+  const notifications = (data?.content || data || []).map((item) => ({
+    ...item,
+    id: item.id ?? item.notificationId,
+    read: item.read ?? item.isRead ?? false,
+  }));
+
   const markMut = useMutation({
     mutationFn: (id) => notificationApi.markAsRead(id),
     onSuccess: () => {
@@ -58,19 +77,43 @@ export default function NotificationsPage() {
   });
 
   const markAllMut = useMutation({
-    mutationFn: () => notificationApi.markAllAsRead(),
+    mutationFn: async () => {
+      try {
+        await notificationApi.markAllAsRead();
+      } catch (error) {
+        // Backward-compatible fallback during partial deploys where /read-all may not be exposed.
+        if (error?.response?.status !== 404) throw error;
+
+        const unreadIds = notifications
+          .filter((item) => !item.read && item.id != null)
+          .map((item) => item.id);
+
+        await Promise.allSettled(unreadIds.map((id) => notificationApi.markAsRead(id)));
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unreadCount'] });
       toast.success('All marked as read');
     },
+    onError: () => {
+      toast.error('Unable to mark all notifications as read');
+    },
   });
 
-  const notifications = data?.content || data || [];
   const totalPages = data?.totalPages || 1;
 
   const handleClick = (n) => {
-    if (!n.read) markMut.mutate(n.id);
+    const notificationId = n.id ?? n.notificationId;
+    if (!n.read && notificationId != null) {
+      markMut.mutate(notificationId, {
+        onError: (error) => {
+          if (error?.response?.status !== 404) {
+            toast.error('Could not mark notification as read');
+          }
+        },
+      });
+    }
     const path = getNavPath(n);
     if (path) navigate(path);
   };
@@ -128,12 +171,12 @@ export default function NotificationsPage() {
         {/* List */}
         {!isLoading && notifications.length > 0 && (
           <div className="flex flex-col gap-2">
-            {notifications.map((n) => {
+            {notifications.map((n, idx) => {
               const meta = ICONS[n.type] || ICONS.DEFAULT;
               const Icon = meta.icon;
               return (
                 <button
-                  key={n.id}
+                  key={n.id ?? `${n.type}-${n.referenceId ?? 'na'}-${n.createdAt ?? n.timestamp ?? idx}`}
                   type="button"
                   onClick={() => handleClick(n)}
                   className="flex items-start gap-3 w-full text-left border-none cursor-pointer"
@@ -165,7 +208,7 @@ export default function NotificationsPage() {
                       {n.message || n.title}
                     </p>
                     <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {formatTimeAgo(n.createdAt || n.timestamp)}
+                      {formatNotificationTime(n.createdAt || n.timestamp)}
                     </span>
                   </div>
                   {!n.read && (

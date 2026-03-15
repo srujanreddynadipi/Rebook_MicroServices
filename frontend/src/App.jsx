@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -38,6 +38,11 @@ const AUTH_PATHS = ['/login', '/register'];
 function App() {
   const { pathname } = useLocation();
   const isAuthPage = AUTH_PATHS.includes(pathname);
+  const hideFooter = pathname.startsWith('/chat') || pathname.startsWith('/notifications');
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [pathname]);
 
   return (
     <div className="flex flex-col min-h-screen" style={{ background: 'var(--bg-page)' }}>
@@ -82,7 +87,7 @@ function App() {
         </Suspense>
       </main>
 
-      {!isAuthPage && <Footer />}
+      {!isAuthPage && !hideFooter && <Footer />}
     </div>
   );
 }

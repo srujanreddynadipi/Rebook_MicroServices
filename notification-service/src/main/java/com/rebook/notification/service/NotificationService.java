@@ -2,10 +2,8 @@ package com.rebook.notification.service;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.rebook.notification.entity.Notification;
 import com.rebook.notification.entity.NotificationType;
@@ -45,11 +43,7 @@ public class NotificationService {
     }
 
     public void markAsRead(Long notificationId, Long userId) {
-        int updated = notificationRepository.markAsReadByIdAndUserId(notificationId, userId);
-        if (updated == 0) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                    "Notification not found for user: " + notificationId);
-        }
+        notificationRepository.markAsReadByIdAndUserId(notificationId, userId);
     }
 
     public void markAllAsRead(Long userId) {
