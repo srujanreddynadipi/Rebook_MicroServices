@@ -3,12 +3,19 @@ package com.rebook.book.service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
 import java.util.Set;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.tika.Tika;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +39,7 @@ public class StudyMaterialAudioService {
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "doc", "docx", "txt", "rtf");
 
     private final Tika tika;
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
     private final String ttsApiUrl;
     private final String apiKey;
@@ -56,6 +64,7 @@ public class StudyMaterialAudioService {
             @Value("${app.audiobook.tts.max-chars-per-chunk:3500}") int maxCharsPerChunk,
             @Value("${app.audiobook.tts.max-total-chars:50000}") int maxTotalChars) {
         this.tika = new Tika();
+        this.objectMapper = new ObjectMapper();
         this.restTemplate = new RestTemplate();
         this.ttsApiUrl = ttsApiUrl;
         this.apiKey = apiKey;
@@ -85,6 +94,13 @@ public class StudyMaterialAudioService {
         if (text.length() > maxTotalChars) {
             throw new IllegalArgumentException("Document is too large for conversion. Max supported text length is "
                     + maxTotalChars + " characters");
+        }
+
+        if (usesPiperProvider()) {
+            String voice = hasText(voiceOverride) ? voiceOverride.trim() : null;
+            byte[] audioBytes = synthesizePiper(text, voice);
+            String outputName = outputName(file.getOriginalFilename(), "wav");
+            return new AudioBookResult(outputName, audioBytes, "audio/wav", text.length(), 1);
         }
 
         if (usesCoquiProvider()) {
@@ -181,6 +197,71 @@ public class StudyMaterialAudioService {
         }
     }
 
+    private byte[] synthesizePiper(String text, String voiceOverride) {
+        URI piperUri = parsePiperUri(ttsApiUrl);
+        int sampleRate = 22050;
+        int sampleWidth = 2;
+        int channels = 1;
+        ByteArrayOutputStream pcmBuffer = new ByteArrayOutputStream();
+
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(piperUri.getHost(), piperUri.getPort()), 5000);
+            socket.setSoTimeout(120000);
+
+            try (OutputStream output = socket.getOutputStream(); InputStream input = socket.getInputStream()) {
+                Map<String, Object> eventData = new HashMap<>();
+                eventData.put("text", text);
+                if (hasText(voiceOverride)) {
+                    eventData.put("voice", Map.of("name", voiceOverride));
+                }
+
+                Map<String, Object> event = Map.of("type", "synthesize", "data", eventData);
+                output.write(objectMapper.writeValueAsBytes(event));
+                output.write('\n');
+                output.flush();
+
+                while (true) {
+                    byte[] headerBytes = readLineBytes(input);
+                    if (headerBytes == null) {
+                        throw new IllegalStateException("Piper connection closed before audio was fully received");
+                    }
+
+                    Map<String, Object> header = objectMapper.readValue(headerBytes,
+                            new TypeReference<Map<String, Object>>() {
+                            });
+
+                    int dataLength = toInt(header.get("data_length"), 0);
+                    int payloadLength = toInt(header.get("payload_length"), 0);
+                    byte[] dataBytes = readExactBytes(input, dataLength);
+                    byte[] payloadBytes = readExactBytes(input, payloadLength);
+
+                    String type = String.valueOf(header.getOrDefault("type", ""));
+                    Map<String, Object> data = mergeEventData(header.get("data"), dataBytes);
+
+                    if ("audio-start".equals(type)) {
+                        sampleRate = toInt(data.get("rate"), sampleRate);
+                        sampleWidth = toInt(data.get("width"), sampleWidth);
+                        channels = toInt(data.get("channels"), channels);
+                    } else if ("audio-chunk".equals(type)) {
+                        if (payloadBytes.length > 0) {
+                            pcmBuffer.write(payloadBytes);
+                        }
+                    } else if ("audio-stop".equals(type)) {
+                        if (pcmBuffer.size() == 0) {
+                            throw new IllegalStateException("Piper returned no audio data");
+                        }
+                        return buildWav(pcmBuffer.toByteArray(), sampleRate, sampleWidth, channels);
+                    } else if ("error".equals(type)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                                "Piper TTS error: " + data.getOrDefault("message", "unknown error"));
+                    }
+                }
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to generate audiobook using Piper TTS", ex);
+        }
+    }
+
     private String extractText(MultipartFile file) {
         try (InputStream input = file.getInputStream()) {
             String extracted = tika.parseToString(input);
@@ -248,11 +329,149 @@ public class StudyMaterialAudioService {
     }
 
     private boolean usesOpenAiProvider() {
-        return !usesCoquiProvider();
+        return !usesCoquiProvider() && !usesPiperProvider();
     }
 
     private boolean usesCoquiProvider() {
         return hasText(provider) && "coqui".equalsIgnoreCase(provider.trim());
+    }
+
+    private boolean usesPiperProvider() {
+        return hasText(provider) && "piper".equalsIgnoreCase(provider.trim());
+    }
+
+    private URI parsePiperUri(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (!normalized.contains("://")) {
+            normalized = "tcp://" + normalized;
+        }
+
+        URI uri = URI.create(normalized);
+        if (uri.getHost() == null || uri.getHost().isBlank()) {
+            throw new IllegalStateException("Invalid Piper endpoint. Set APP_AUDIOBOOK_TTS_API_URL like tcp://tts:10200");
+        }
+
+        int port = uri.getPort();
+        if (port <= 0) {
+            throw new IllegalStateException("Invalid Piper endpoint port. Set APP_AUDIOBOOK_TTS_API_URL like tcp://tts:10200");
+        }
+
+        return uri;
+    }
+
+    private byte[] readLineBytes(InputStream input) throws IOException {
+        ByteArrayOutputStream line = new ByteArrayOutputStream();
+        int value;
+        while ((value = input.read()) != -1) {
+            if (value == '\n') {
+                break;
+            }
+            if (value != '\r') {
+                line.write(value);
+            }
+        }
+
+        if (value == -1 && line.size() == 0) {
+            return null;
+        }
+
+        return line.toByteArray();
+    }
+
+    private byte[] readExactBytes(InputStream input, int length) throws IOException {
+        if (length <= 0) {
+            return new byte[0];
+        }
+
+        byte[] result = new byte[length];
+        int offset = 0;
+        while (offset < length) {
+            int read = input.read(result, offset, length - offset);
+            if (read == -1) {
+                throw new IOException("Unexpected end of stream while reading Piper response");
+            }
+            offset += read;
+        }
+        return result;
+    }
+
+    private Map<String, Object> mergeEventData(Object headerData, byte[] dataBytes) throws IOException {
+        Map<String, Object> merged = new HashMap<>();
+        if (headerData instanceof Map<?, ?> mapData) {
+            for (Map.Entry<?, ?> entry : mapData.entrySet()) {
+                if (entry.getKey() != null) {
+                    merged.put(String.valueOf(entry.getKey()), entry.getValue());
+                }
+            }
+        }
+
+        if (dataBytes.length > 0) {
+            String text = new String(dataBytes, StandardCharsets.UTF_8).trim();
+            if (!text.isEmpty()) {
+                Map<String, Object> additionalData = objectMapper.readValue(text,
+                        new TypeReference<Map<String, Object>>() {
+                        });
+                merged.putAll(additionalData);
+            }
+        }
+
+        return merged;
+    }
+
+    private int toInt(Object value, int fallback) {
+        if (value instanceof Number numberValue) {
+            return numberValue.intValue();
+        }
+        if (value instanceof String stringValue) {
+            try {
+                return Integer.parseInt(stringValue.trim());
+            } catch (NumberFormatException ex) {
+                return fallback;
+            }
+        }
+        return fallback;
+    }
+
+    private byte[] buildWav(byte[] pcmData, int sampleRate, int sampleWidth, int channels) {
+        int bitsPerSample = sampleWidth * 8;
+        int byteRate = sampleRate * channels * sampleWidth;
+        int blockAlign = channels * sampleWidth;
+        int dataSize = pcmData.length;
+        int riffChunkSize = 36 + dataSize;
+
+        ByteArrayOutputStream wav = new ByteArrayOutputStream(44 + dataSize);
+        try {
+            wav.write("RIFF".getBytes(StandardCharsets.US_ASCII));
+            writeIntLe(wav, riffChunkSize);
+            wav.write("WAVE".getBytes(StandardCharsets.US_ASCII));
+            wav.write("fmt ".getBytes(StandardCharsets.US_ASCII));
+            writeIntLe(wav, 16);
+            writeShortLe(wav, 1);
+            writeShortLe(wav, channels);
+            writeIntLe(wav, sampleRate);
+            writeIntLe(wav, byteRate);
+            writeShortLe(wav, blockAlign);
+            writeShortLe(wav, bitsPerSample);
+            wav.write("data".getBytes(StandardCharsets.US_ASCII));
+            writeIntLe(wav, dataSize);
+            wav.write(pcmData);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to build WAV output", ex);
+        }
+
+        return wav.toByteArray();
+    }
+
+    private void writeIntLe(ByteArrayOutputStream output, int value) {
+        output.write(value & 0xff);
+        output.write((value >> 8) & 0xff);
+        output.write((value >> 16) & 0xff);
+        output.write((value >> 24) & 0xff);
+    }
+
+    private void writeShortLe(ByteArrayOutputStream output, int value) {
+        output.write(value & 0xff);
+        output.write((value >> 8) & 0xff);
     }
 
     private String normalizeWhitespace(String value) {

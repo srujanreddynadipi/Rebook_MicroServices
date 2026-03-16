@@ -172,10 +172,10 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       APP_AWS_BUCKET_NAME: ${APP_AWS_BUCKET_NAME:-}
       APP_AWS_REGION: ${APP_AWS_REGION:-us-east-1}
-      APP_AUDIOBOOK_TTS_API_URL: ${APP_AUDIOBOOK_TTS_API_URL:-http://tts:5002/api/tts}
+      APP_AUDIOBOOK_TTS_API_URL: ${APP_AUDIOBOOK_TTS_API_URL:-tcp://tts:10200}
       APP_AUDIOBOOK_TTS_API_KEY: ${APP_AUDIOBOOK_TTS_API_KEY:-}
-      APP_AUDIOBOOK_TTS_PROVIDER: ${APP_AUDIOBOOK_TTS_PROVIDER:-coqui}
-      APP_AUDIOBOOK_TTS_MODEL: ${APP_AUDIOBOOK_TTS_MODEL:-tts_models/en/ljspeech/tacotron2-DDC}
+      APP_AUDIOBOOK_TTS_PROVIDER: ${APP_AUDIOBOOK_TTS_PROVIDER:-piper}
+      APP_AUDIOBOOK_TTS_MODEL: ${APP_AUDIOBOOK_TTS_MODEL:-en_US-lessac-medium}
       APP_AUDIOBOOK_TTS_VOICE: ${APP_AUDIOBOOK_TTS_VOICE:-alloy}
       APP_AUDIOBOOK_TTS_COQUI_SPEAKER_ID: ${APP_AUDIOBOOK_TTS_COQUI_SPEAKER_ID:-}
       APP_AUDIOBOOK_TTS_COQUI_LANGUAGE_ID: ${APP_AUDIOBOOK_TTS_COQUI_LANGUAGE_ID:-}
@@ -287,13 +287,18 @@ services:
       - rebook-network
 
   tts:
-    image: ghcr.io/coqui-ai/tts
+    image: lscr.io/linuxserver/piper:latest
     container_name: rebook-tts
     restart: always
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Etc/UTC}
+      PIPER_VOICE: ${APP_AUDIOBOOK_TTS_MODEL:-en_US-lessac-medium}
     ports:
-      - "5002:5002"
-    command: >
-      --model_name ${APP_AUDIOBOOK_TTS_MODEL:-tts_models/en/ljspeech/tacotron2-DDC}
+      - "10200:10200"
+    volumes:
+      - piper_data:/config
     networks:
       - rebook-network
 
@@ -301,6 +306,7 @@ volumes:
   mysql_data:
   redis_data:
   kafka_data:
+  piper_data:
 
 networks:
   rebook-network:

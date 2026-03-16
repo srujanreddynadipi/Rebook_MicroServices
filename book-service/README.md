@@ -60,6 +60,7 @@ From `application.yml`:
 - Audiobook TTS settings:
   - `app.audiobook.tts.api-url` from `APP_AUDIOBOOK_TTS_API_URL`
   - `app.audiobook.tts.api-key` from `APP_AUDIOBOOK_TTS_API_KEY`
+  - `app.audiobook.tts.provider` from `APP_AUDIOBOOK_TTS_PROVIDER` (`piper`, `coqui`, `openai`)
   - `app.audiobook.tts.model` from `APP_AUDIOBOOK_TTS_MODEL`
   - `app.audiobook.tts.voice` from `APP_AUDIOBOOK_TTS_VOICE`
 
@@ -111,7 +112,7 @@ Base URL: `/api/books`
 - Response: `200 OK`
 
 9. `POST /api/books/study-material/audiobook` (multipart/form-data)
-- Converts uploaded study material into audiobook audio (`mp3`) using configured TTS API
+- Converts uploaded study material into audiobook audio (default `wav`) using configured TTS provider
 - Parts:
   - `file` (required, supports `pdf`, `doc`, `docx`, `txt`, `rtf`)
 - Optional query parameter:
