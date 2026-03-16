@@ -111,7 +111,8 @@ public class RequestEventConsumer {
         String bookTitle = fallbackBookTitle(event.getBookTitle());
         String message = "The request for " + bookTitle + " was cancelled by the requester.";
 
-        notificationService.createNotification(event.getReceiverId(), "Request cancelled", message, NotificationType.SYSTEM,
+        notificationService.createNotification(event.getReceiverId(), "Request cancelled", message,
+                NotificationType.SYSTEM,
                 event.getRequestId());
         log.info("Request {} was cancelled by sender {}", event.getRequestId(), event.getSenderId());
     }

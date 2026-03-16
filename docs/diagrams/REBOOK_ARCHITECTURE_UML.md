@@ -74,7 +74,7 @@ flowchart LR
     kafka -->|consume request-events| book
 
     notification --> smtp
-    chat -->|broadcast /topic/requests/{requestId}| frontend
+    chat -->|broadcast /topic/requests/:requestId| frontend
 ```
 
 ## 2. UML Sequence Diagram

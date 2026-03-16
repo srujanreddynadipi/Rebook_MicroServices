@@ -21,6 +21,7 @@ export default function ChatWindowPage() {
   const [input, setInput]           = useState('');
   const [sending, setSending]       = useState(false);
   const [sendError, setSendError]   = useState('');
+  const messageListRef              = useRef(null);
   const bottomRef                   = useRef(null);
   const textareaRef                 = useRef(null);
 
@@ -125,7 +126,9 @@ export default function ChatWindowPage() {
 
   /* ── Auto-scroll to bottom ───────────────────────────────────────────── */
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const listEl = messageListRef.current;
+    if (!listEl) return;
+    listEl.scrollTo({ top: listEl.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
   /* ── Send handler ─────────────────────────────────────────────────────── */
@@ -249,6 +252,7 @@ export default function ChatWindowPage() {
 
       {/* ── Message list ── */}
       <div
+        ref={messageListRef}
         className="flex-1 overflow-y-auto py-4"
         style={{ scrollbarWidth: 'thin' }}
       >

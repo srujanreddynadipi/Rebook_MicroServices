@@ -183,7 +183,7 @@ export default function Navbar() {
               letterSpacing: '-0.02em',
             }}
           >
-            Kitabi
+            ReBook
           </span>
         </Link>
 
@@ -360,7 +360,7 @@ export default function Navbar() {
                       { icon: BookOpen,      label: 'My Books',          to: '/my-books' },
                       { icon: Inbox,         label: 'Incoming Requests', to: '/requests/received' },
                       { icon: BookMarked,    label: 'My Requests',       to: '/requests/sent' },
-                      ...(user.role === 'ROLE_ADMIN'
+                      ...(user.role === 'ADMIN'
                         ? [{ icon: Shield, label: 'Admin Dashboard', to: '/admin' }]
                         : []),
                     ].map(({ icon: Icon, label, to }) => (
@@ -521,7 +521,7 @@ export default function Navbar() {
                 { to: '/chat',             label: 'Messages',          icon: MessageCircle },
                 { to: '/notifications',    label: 'Notifications',     icon: Bell },
                 { to: '/profile',          label: 'My Profile',        icon: User },
-                ...(user.role === 'ROLE_ADMIN'
+                ...(user.role === 'ADMIN'
                   ? [{ to: '/admin', label: 'Admin Dashboard', icon: LayoutDashboard }]
                   : []),
               ] : [

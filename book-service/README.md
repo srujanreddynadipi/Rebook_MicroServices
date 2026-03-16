@@ -57,6 +57,11 @@ From `application.yml`:
 - AWS settings:
   - `app.aws.bucket-name` from `APP_AWS_BUCKET_NAME`
   - `app.aws.region` from `APP_AWS_REGION`
+- Audiobook TTS settings:
+  - `app.audiobook.tts.api-url` from `APP_AUDIOBOOK_TTS_API_URL`
+  - `app.audiobook.tts.api-key` from `APP_AUDIOBOOK_TTS_API_KEY`
+  - `app.audiobook.tts.model` from `APP_AUDIOBOOK_TTS_MODEL`
+  - `app.audiobook.tts.voice` from `APP_AUDIOBOOK_TTS_VOICE`
 
 ## API Endpoints
 
@@ -105,9 +110,17 @@ Base URL: `/api/books`
 - Internal service-to-service endpoint
 - Response: `200 OK`
 
+9. `POST /api/books/study-material/audiobook` (multipart/form-data)
+- Converts uploaded study material into audiobook audio (`mp3`) using configured TTS API
+- Parts:
+  - `file` (required, supports `pdf`, `doc`, `docx`, `txt`, `rtf`)
+- Optional query parameter:
+  - `voice` (overrides default configured voice)
+- Response: `200 OK` with `audio/mpeg` attachment
+
 Recommendation API base URL: `/api/recommendations`
 
-9. `GET /api/recommendations/{bookId}`
+10. `GET /api/recommendations/{bookId}`
 - Returns top 6 books where:
   - same category OR same author
   - book id excluded

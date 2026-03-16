@@ -7,11 +7,13 @@ import com.rebook.book.dto.response.BookResponse;
 import com.rebook.book.dto.response.UserStatsResponse;
 import com.rebook.book.entity.BookStatus;
 import com.rebook.book.service.BookService;
+import com.rebook.book.service.StudyMaterialAudioService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,9 +37,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class BookController {
 
     private final BookService bookService;
+    private final StudyMaterialAudioService studyMaterialAudioService;
 
-    public BookController(BookService bookService) {
+    public BookController(BookService bookService, StudyMaterialAudioService studyMaterialAudioService) {
         this.bookService = bookService;
+        this.studyMaterialAudioService = studyMaterialAudioService;
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -99,5 +103,17 @@ public class BookController {
     @GetMapping("/users/{userId}/stats")
     public ResponseEntity<UserStatsResponse> getUserStats(@PathVariable Long userId) {
         return ResponseEntity.ok(bookService.getUserStats(userId));
+    }
+
+    @PostMapping(value = "/study-material/audiobook", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = "audio/mpeg")
+    public ResponseEntity<byte[]> convertStudyMaterialToAudiobook(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "voice", required = false) String voice) {
+        StudyMaterialAudioService.AudioBookResult audioBook = studyMaterialAudioService.convertToAudiobook(file, voice);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + audioBook.fileName() + "\"")
+                .contentType(MediaType.parseMediaType("audio/mpeg"))
+                .body(audioBook.audioBytes());
     }
 }
