@@ -164,17 +164,22 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      tts:
+        condition: service_started
     ports:
       - "8082:8082"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       APP_AWS_BUCKET_NAME: ${APP_AWS_BUCKET_NAME:-}
       APP_AWS_REGION: ${APP_AWS_REGION:-us-east-1}
-      APP_AUDIOBOOK_TTS_API_URL: ${APP_AUDIOBOOK_TTS_API_URL:-https://api.openai.com/v1/audio/speech}
+      APP_AUDIOBOOK_TTS_API_URL: ${APP_AUDIOBOOK_TTS_API_URL:-http://tts:5002/api/tts}
       APP_AUDIOBOOK_TTS_API_KEY: ${APP_AUDIOBOOK_TTS_API_KEY:-}
-      APP_AUDIOBOOK_TTS_MODEL: ${APP_AUDIOBOOK_TTS_MODEL:-gpt-4o-mini-tts}
+      APP_AUDIOBOOK_TTS_PROVIDER: ${APP_AUDIOBOOK_TTS_PROVIDER:-coqui}
+      APP_AUDIOBOOK_TTS_MODEL: ${APP_AUDIOBOOK_TTS_MODEL:-tts_models/en/ljspeech/tacotron2-DDC}
       APP_AUDIOBOOK_TTS_VOICE: ${APP_AUDIOBOOK_TTS_VOICE:-alloy}
-      APP_AUDIOBOOK_TTS_RESPONSE_FORMAT: ${APP_AUDIOBOOK_TTS_RESPONSE_FORMAT:-mp3}
+      APP_AUDIOBOOK_TTS_COQUI_SPEAKER_ID: ${APP_AUDIOBOOK_TTS_COQUI_SPEAKER_ID:-}
+      APP_AUDIOBOOK_TTS_COQUI_LANGUAGE_ID: ${APP_AUDIOBOOK_TTS_COQUI_LANGUAGE_ID:-}
+      APP_AUDIOBOOK_TTS_RESPONSE_FORMAT: ${APP_AUDIOBOOK_TTS_RESPONSE_FORMAT:-wav}
       APP_AUDIOBOOK_TTS_MAX_CHARS_PER_CHUNK: ${APP_AUDIOBOOK_TTS_MAX_CHARS_PER_CHUNK:-3500}
       APP_AUDIOBOOK_TTS_MAX_TOTAL_CHARS: ${APP_AUDIOBOOK_TTS_MAX_TOTAL_CHARS:-50000}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
@@ -278,6 +283,17 @@ services:
       - "443:443"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - rebook-network
+
+  tts:
+    image: ghcr.io/coqui-ai/tts
+    container_name: rebook-tts
+    restart: always
+    ports:
+      - "5002:5002"
+    command: >
+      --model_name ${APP_AUDIOBOOK_TTS_MODEL:-tts_models/en/ljspeech/tacotron2-DDC}
     networks:
       - rebook-network
 

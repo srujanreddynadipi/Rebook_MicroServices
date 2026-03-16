@@ -105,14 +105,14 @@ public class BookController {
         return ResponseEntity.ok(bookService.getUserStats(userId));
     }
 
-    @PostMapping(value = "/study-material/audiobook", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "audio/mpeg")
+    @PostMapping(value = "/study-material/audiobook", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<byte[]> convertStudyMaterialToAudiobook(
             @RequestPart("file") MultipartFile file,
             @RequestParam(value = "voice", required = false) String voice) {
         StudyMaterialAudioService.AudioBookResult audioBook = studyMaterialAudioService.convertToAudiobook(file, voice);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + audioBook.fileName() + "\"")
-                .contentType(MediaType.parseMediaType("audio/mpeg"))
+                .contentType(MediaType.parseMediaType(audioBook.contentType()))
                 .body(audioBook.audioBytes());
     }
 }

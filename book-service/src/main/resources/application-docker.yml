@@ -16,10 +16,13 @@ eureka:
 app:
   audiobook:
     tts:
-      api-url: ${APP_AUDIOBOOK_TTS_API_URL:https://api.openai.com/v1/audio/speech}
+      api-url: ${APP_AUDIOBOOK_TTS_API_URL:http://tts:5002/api/tts}
       api-key: ${APP_AUDIOBOOK_TTS_API_KEY:}
-      model: ${APP_AUDIOBOOK_TTS_MODEL:gpt-4o-mini-tts}
+      provider: ${APP_AUDIOBOOK_TTS_PROVIDER:coqui}
+      model: ${APP_AUDIOBOOK_TTS_MODEL:tts_models/en/ljspeech/tacotron2-DDC}
       voice: ${APP_AUDIOBOOK_TTS_VOICE:alloy}
-      response-format: ${APP_AUDIOBOOK_TTS_RESPONSE_FORMAT:mp3}
+      coqui-speaker-id: ${APP_AUDIOBOOK_TTS_COQUI_SPEAKER_ID:}
+      coqui-language-id: ${APP_AUDIOBOOK_TTS_COQUI_LANGUAGE_ID:}
+      response-format: ${APP_AUDIOBOOK_TTS_RESPONSE_FORMAT:wav}
       max-chars-per-chunk: ${APP_AUDIOBOOK_TTS_MAX_CHARS_PER_CHUNK:3500}
       max-total-chars: ${APP_AUDIOBOOK_TTS_MAX_TOTAL_CHARS:50000}
