@@ -105,8 +105,7 @@ public class BookController {
         return ResponseEntity.ok(bookService.getUserStats(userId));
     }
 
-    @PostMapping(value = "/study-material/audiobook", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
-            produces = "audio/mpeg")
+    @PostMapping(value = "/study-material/audiobook", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "audio/mpeg")
     public ResponseEntity<byte[]> convertStudyMaterialToAudiobook(
             @RequestPart("file") MultipartFile file,
             @RequestParam(value = "voice", required = false) String voice) {
