@@ -133,5 +133,22 @@ export const convertDocumentToAudiobook = ({ file, voice }) => {
       }
 
       return { blob: res.data, fileName };
+    })
+    .catch(async (err) => {
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          const msg = json?.message || json?.error;
+          if (msg) {
+            const parsed = new Error(msg);
+            parsed.response = err.response;
+            throw parsed;
+          }
+        } catch {
+          // Ignore parse failure and fall through to original error
+        }
+      }
+      throw err;
     });
 };

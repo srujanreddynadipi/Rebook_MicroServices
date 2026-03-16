@@ -18,8 +18,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 @Service
 public class StudyMaterialAudioService {
@@ -60,7 +63,8 @@ public class StudyMaterialAudioService {
         validateFile(file);
 
         if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException("Audiobook API key is not configured");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "APP_AUDIOBOOK_TTS_API_KEY is not configured on server");
         }
 
         String text = extractText(file);
@@ -96,7 +100,7 @@ public class StudyMaterialAudioService {
         payload.put("model", defaultModel);
         payload.put("voice", voice);
         payload.put("input", textChunk);
-        payload.put("format", responseFormat);
+        payload.put("response_format", responseFormat);
 
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
@@ -110,6 +114,13 @@ public class StudyMaterialAudioService {
                 throw new IllegalStateException("TTS API returned empty audio response");
             }
             return response.getBody();
+        } catch (HttpStatusCodeException ex) {
+            String providerMessage = ex.getResponseBodyAsString();
+            if (providerMessage != null && providerMessage.length() > 400) {
+                providerMessage = providerMessage.substring(0, 400);
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "TTS provider request failed: " + ex.getStatusCode().value() + " " + providerMessage, ex);
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to generate audiobook using configured TTS API", ex);
         }
