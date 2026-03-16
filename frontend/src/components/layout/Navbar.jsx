@@ -6,11 +6,13 @@ import {
   BookHeart, Search, Bell, Plus, LogOut, User,
   BookOpen, ChevronDown, Menu, X, Shield, BookMarked,
   MessageCircle, Inbox, LayoutDashboard,
+  Headphones,
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Helpers
+                      { icon: Headphones,    label: 'Audiobook Studio',  to: '/books/audiobook' },
 ───────────────────────────────────────────────────────────────────────────── */
 function getInitials(name = '') {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
@@ -233,12 +235,12 @@ export default function Navbar() {
         <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, background: 'rgba(255,255,255,0.42)', border: `1px solid ${navBorder}`, borderRadius: 999 }}>
           <NavLink to="/books">Browse</NavLink>
           {user && <NavLink to="/my-books">My Books</NavLink>}
+          {user && <NavLink to="/books/audiobook">Audiobook</NavLink>}
           {user && <NavLink to="/requests/received">Requests</NavLink>}
         </div>
 
         {/* ── Right actions ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto', flexShrink: 0 }}>
-
           {user ? (
             <>
               {/* List a book */}
@@ -516,6 +518,7 @@ export default function Navbar() {
               ...(user ? [
                 { to: '/books/add',        label: 'List a Book',       icon: Plus },
                 { to: '/my-books',         label: 'My Books',          icon: BookMarked },
+                { to: '/books/audiobook',  label: 'Audiobook Studio',  icon: Headphones },
                 { to: '/requests/received',label: 'Incoming Requests', icon: Inbox },
                 { to: '/requests/sent',    label: 'My Requests',       icon: BookOpen },
                 { to: '/chat',             label: 'Messages',          icon: MessageCircle },

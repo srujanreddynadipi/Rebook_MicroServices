@@ -20,6 +20,7 @@ const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
 const BookListPage = lazy(() => import('./pages/books/BookListPage'));
 const BookDetailPage = lazy(() => import('./pages/books/BookDetailPage'));
 const AddBookPage = lazy(() => import('./pages/books/AddBookPage'));
+const AudiobookPage = lazy(() => import('./pages/books/AudiobookPage'));
 const EditBookPage = lazy(() => import('./pages/books/EditBookPage'));
 const MyBooksPage = lazy(() => import('./pages/books/MyBooksPage'));
 const MyRequestsPage = lazy(() => import('./pages/requests/MyRequestsPage'));
@@ -61,6 +62,7 @@ function App() {
 
             {/* Protected routes */}
             <Route element={<ProtectedRoute />}>
+              <Route path="/books/audiobook" element={<AudiobookPage />} />
               <Route path="/books/edit/:id" element={<EditBookPage />} />
               <Route path="/my-books" element={<MyBooksPage />} />
               <Route path="/requests/sent" element={<MyRequestsPage />} />

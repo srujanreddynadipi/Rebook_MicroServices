@@ -98,3 +98,40 @@ export const getPopularBooks = () =>
  */
 export const getRecommendations = (bookId) =>
   axiosInstance.get(`/api/recommendations/${bookId}`).then((res) => res.data);
+
+/**
+ * Convert uploaded study material file into an audiobook
+ * @param {object} payload - { file: File, voice?: string }
+ * @returns {Promise<{blob: Blob, fileName: string}>}
+ */
+export const convertDocumentToAudiobook = ({ file, voice }) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const query = voice ? `?voice=${encodeURIComponent(voice)}` : '';
+
+  return axiosInstance
+    .post(`${BOOKS_BASE}/study-material/audiobook${query}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      responseType: 'blob',
+    })
+    .then((res) => {
+      let fileName = 'audiobook.mp3';
+      const contentDisposition = res?.headers?.['content-disposition'];
+
+      if (contentDisposition) {
+        const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+        const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+        const rawName = utfMatch?.[1] || plainMatch?.[1];
+        if (rawName) {
+          try {
+            fileName = decodeURIComponent(rawName.trim());
+          } catch {
+            fileName = rawName.trim();
+          }
+        }
+      }
+
+      return { blob: res.data, fileName };
+    });
+};
