@@ -19,9 +19,7 @@
 #   APP_AWS_REGION         — AWS region (e.g. us-east-1)
 #   MAIL_USERNAME          — SMTP / SES sender address
 #   MAIL_PASSWORD          — SMTP / SES password
-#   APP_OLLAMA_PRIMARY_BASE_URL   — Colab tunnel URL (primary)
-#   APP_OLLAMA_FALLBACK_BASE_URL  — EC2/local Ollama URL (fallback)
-#   APP_OLLAMA_ENABLE_FALLBACK    — true/false
+#   APP_OLLAMA_BASE_URL           — Ollama base URL on RAG instance (e.g. http://host.docker.internal:11434)
 #   APP_OLLAMA_CHAT_MODEL         — Chat model name (e.g. gemma:2b)
 #   APP_OLLAMA_EMBEDDING_MODEL    — Embedding model name (e.g. nomic-embed-text)
 #   APP_OLLAMA_REQUEST_TIMEOUT_SECONDS — timeout in seconds
@@ -161,6 +159,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Preflight check - main EC2 SSH reachability
+        run: |
+          set -e
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            echo "ERROR: EC2_HOST secret is empty"
+            exit 1
+          fi
+
+          echo "Checking TCP connectivity to ${{ secrets.EC2_HOST }}:22"
+          if ! timeout 15 bash -c "</dev/tcp/${{ secrets.EC2_HOST }}/22"; then
+            echo "ERROR: Cannot reach ${{ secrets.EC2_HOST }}:22 from GitHub runner."
+            echo "Check EC2 public IP/hostname, instance state, security group inbound 22, NACL, route table, and any corporate/VPC firewall rules."
+            exit 1
+          fi
+
       - name: SSH into main EC2 and deploy (no rag-service)
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -192,9 +205,7 @@ jobs:
             APP_AWS_REGION=${{ secrets.APP_AWS_REGION }}
             MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
             MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
-            APP_OLLAMA_PRIMARY_BASE_URL=${{ secrets.APP_OLLAMA_PRIMARY_BASE_URL }}
-            APP_OLLAMA_FALLBACK_BASE_URL=${{ secrets.APP_OLLAMA_FALLBACK_BASE_URL }}
-            APP_OLLAMA_ENABLE_FALLBACK=${{ secrets.APP_OLLAMA_ENABLE_FALLBACK }}
+            APP_OLLAMA_BASE_URL=${{ secrets.APP_OLLAMA_BASE_URL }}
             APP_OLLAMA_CHAT_MODEL=${{ secrets.APP_OLLAMA_CHAT_MODEL }}
             APP_OLLAMA_EMBEDDING_MODEL=${{ secrets.APP_OLLAMA_EMBEDDING_MODEL }}
             APP_OLLAMA_REQUEST_TIMEOUT_SECONDS=${{ secrets.APP_OLLAMA_REQUEST_TIMEOUT_SECONDS }}
@@ -242,6 +253,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Preflight check - RAG EC2 SSH reachability
+        run: |
+          set -e
+          if [ -z "${{ secrets.RAG_EC2_HOST }}" ]; then
+            echo "ERROR: RAG_EC2_HOST secret is empty"
+            exit 1
+          fi
+
+          echo "Checking TCP connectivity to ${{ secrets.RAG_EC2_HOST }}:22"
+          if ! timeout 15 bash -c "</dev/tcp/${{ secrets.RAG_EC2_HOST }}/22"; then
+            echo "ERROR: Cannot reach ${{ secrets.RAG_EC2_HOST }}:22 from GitHub runner."
+            echo "Check EC2 public IP/hostname, instance state, security group inbound 22, NACL, route table, and any corporate/VPC firewall rules."
+            exit 1
+          fi
+
       - name: SSH into RAG EC2 and deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -266,9 +292,7 @@ jobs:
             echo "==> Writing .env for RAG instance..."
             cat > .env << EOF
             APP_JWT_SECRET=${{ secrets.APP_JWT_SECRET }}
-            APP_OLLAMA_PRIMARY_BASE_URL=${{ secrets.APP_OLLAMA_PRIMARY_BASE_URL }}
-            APP_OLLAMA_FALLBACK_BASE_URL=${{ secrets.APP_OLLAMA_FALLBACK_BASE_URL }}
-            APP_OLLAMA_ENABLE_FALLBACK=${{ secrets.APP_OLLAMA_ENABLE_FALLBACK }}
+            APP_OLLAMA_BASE_URL=${{ secrets.APP_OLLAMA_BASE_URL }}
             APP_OLLAMA_CHAT_MODEL=${{ secrets.APP_OLLAMA_CHAT_MODEL }}
             APP_OLLAMA_EMBEDDING_MODEL=${{ secrets.APP_OLLAMA_EMBEDDING_MODEL }}
             APP_OLLAMA_REQUEST_TIMEOUT_SECONDS=${{ secrets.APP_OLLAMA_REQUEST_TIMEOUT_SECONDS }}
