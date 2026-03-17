@@ -587,6 +587,17 @@ public class DocumentIngestionService {
     }
 
     /**
+     * Get chunk count for a document without initializing lazy collections.
+     *
+     * @param documentId The document ID
+     * @return Number of chunks for the document
+     */
+    public long getChunkCount(Long documentId) {
+        Long count = chunkRepository.countByDocumentId(documentId);
+        return count != null ? count : 0L;
+    }
+
+    /**
      * Delete document and its chunks
      * 
      * @param documentId The document ID to delete

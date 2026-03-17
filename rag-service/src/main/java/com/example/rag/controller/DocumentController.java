@@ -148,7 +148,7 @@ public class DocumentController {
                         docMap.put("id", doc.getId());
                         docMap.put("fileName", doc.getFilename());
                         docMap.put("uploadedAt", doc.getUploadedAt());
-                        docMap.put("chunkCount", doc.getChunks() != null ? doc.getChunks().size() : 0);
+                        docMap.put("chunkCount", documentIngestionService.getChunkCount(doc.getId()));
                         return docMap;
                     })
                     .toList();
@@ -188,7 +188,7 @@ public class DocumentController {
             response.put("id", document.getId());
             response.put("fileName", document.getFilename());
             response.put("uploadedAt", document.getUploadedAt());
-            response.put("chunkCount", document.getChunks() != null ? document.getChunks().size() : 0);
+            response.put("chunkCount", documentIngestionService.getChunkCount(document.getId()));
             response.put("fileSize", document.getFileSize());
 
             return ResponseEntity.ok(response);
