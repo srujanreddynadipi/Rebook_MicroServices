@@ -27,6 +27,7 @@ const MyRequestsPage = lazy(() => import('./pages/requests/MyRequestsPage'));
 const IncomingRequestsPage = lazy(() => import('./pages/requests/IncomingRequestsPage'));
 const ChatPage = lazy(() => import('./pages/chat/ChatPage'));
 const ChatWindowPage = lazy(() => import('./pages/chat/ChatWindowPage'));
+const RagPage = lazy(() => import('./pages/chat/RagPage'));
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const NotificationsPage = lazy(() => import('./pages/notifications/NotificationsPage'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
@@ -63,6 +64,7 @@ function App() {
             {/* Protected routes */}
             <Route element={<ProtectedRoute />}>
               <Route path="/books/audiobook" element={<AudiobookPage />} />
+              <Route path="/rag" element={<RagPage />} />
               <Route path="/books/edit/:id" element={<EditBookPage />} />
               <Route path="/my-books" element={<MyBooksPage />} />
               <Route path="/requests/sent" element={<MyRequestsPage />} />

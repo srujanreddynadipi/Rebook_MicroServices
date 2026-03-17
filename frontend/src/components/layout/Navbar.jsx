@@ -6,7 +6,7 @@ import {
   BookHeart, Search, Bell, Plus, LogOut, User,
   BookOpen, ChevronDown, Menu, X, Shield, BookMarked,
   MessageCircle, Inbox, LayoutDashboard,
-  Headphones,
+  Headphones, Bot,
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -236,6 +236,7 @@ export default function Navbar() {
           <NavLink to="/books">Browse</NavLink>
           {user && <NavLink to="/my-books">My Books</NavLink>}
           {user && <NavLink to="/books/audiobook">Audiobook</NavLink>}
+          {user && <NavLink to="/rag">RAG</NavLink>}
           {user && <NavLink to="/requests/received">Requests</NavLink>}
         </div>
 
@@ -362,6 +363,7 @@ export default function Navbar() {
                       { icon: BookOpen,      label: 'My Books',          to: '/my-books' },
                       { icon: Inbox,         label: 'Incoming Requests', to: '/requests/received' },
                       { icon: BookMarked,    label: 'My Requests',       to: '/requests/sent' },
+                      { icon: Bot,           label: 'RAG Workspace',     to: '/rag' },
                       ...(user.role === 'ADMIN'
                         ? [{ icon: Shield, label: 'Admin Dashboard', to: '/admin' }]
                         : []),
@@ -519,6 +521,7 @@ export default function Navbar() {
                 { to: '/books/add',        label: 'List a Book',       icon: Plus },
                 { to: '/my-books',         label: 'My Books',          icon: BookMarked },
                 { to: '/books/audiobook',  label: 'Audiobook Studio',  icon: Headphones },
+                { to: '/rag',              label: 'RAG Workspace',     icon: Bot },
                 { to: '/requests/received',label: 'Incoming Requests', icon: Inbox },
                 { to: '/requests/sent',    label: 'My Requests',       icon: BookOpen },
                 { to: '/chat',             label: 'Messages',          icon: MessageCircle },

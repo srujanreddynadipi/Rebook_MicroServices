@@ -362,12 +362,14 @@ public class StudyMaterialAudioService {
 
         URI uri = URI.create(normalized);
         if (uri.getHost() == null || uri.getHost().isBlank()) {
-            throw new IllegalStateException("Invalid Piper endpoint. Set APP_AUDIOBOOK_TTS_API_URL like tcp://tts:10200");
+            throw new IllegalStateException(
+                    "Invalid Piper endpoint. Set APP_AUDIOBOOK_TTS_API_URL like tcp://tts:10200");
         }
 
         int port = uri.getPort();
         if (port <= 0) {
-            throw new IllegalStateException("Invalid Piper endpoint port. Set APP_AUDIOBOOK_TTS_API_URL like tcp://tts:10200");
+            throw new IllegalStateException(
+                    "Invalid Piper endpoint port. Set APP_AUDIOBOOK_TTS_API_URL like tcp://tts:10200");
         }
 
         return uri;

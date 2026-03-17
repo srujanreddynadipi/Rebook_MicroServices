@@ -1,5 +1,22 @@
 ssh -i rebook-key.pem ubuntu@13.203.12.138 // connect terminal in lap
 
+ssh -i "C:\Users\sruja\Downloads\rag_key.pem" ubuntu@3.111.82.100
+
+
+//Commands to check space and health on any EC2
+df -h
+df -h / /var /home
+sudo du -sh /var/lib/docker
+docker system df
+free -h
+nproc
+sudo du -xhd1 / | sort -h
+sudo du -xhd1 /var | sort -h
+
+Useful cleanup before demos:
+docker system prune -af
+docker volume prune -f
+
 # ReBook System - Docker Setup & Startup Guide
 
 Complete guide to build, run, and verify all microservices and infrastructure components.
@@ -303,6 +320,132 @@ docker-compose up -d --build
 
 # Remove unused images/containers
 docker system prune
+
+---
+
+## RAG Ollama Dual-Mode Setup (EC2 + Colab Fallback)
+
+This project now supports two Ollama endpoints:
+
+- `primary`: your Colab tunnel endpoint
+- `fallback`: your EC2 Ollama endpoint (used automatically if Colab is down)
+
+The fallback logic is implemented inside `rag-service`.
+
+### 1. Recommended Model Pair (8 GB CPU Demo)
+
+- Chat model: `gemma:2b`
+- Embedding model: `nomic-embed-text`
+
+> For free-tier style instances, this is the most reliable balance for demos.
+
+### 2. Start Ollama on EC2 (Fallback)
+
+Run on the EC2 host where Ollama will live:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Start Ollama daemon
+sudo systemctl enable ollama
+sudo systemctl start ollama
+
+# Pull models
+ollama pull gemma:2b
+ollama pull nomic-embed-text
+
+# Quick validation
+curl http://localhost:11434/api/tags
+```
+
+### 3. Start Qwen2.5-7B on Colab (Primary)
+
+In Google Colab (GPU runtime):
+
+```bash
+!curl -fsSL https://ollama.com/install.sh | sh
+!nohup ollama serve > /content/ollama.log 2>&1 &
+!sleep 5
+
+# Optional heavy showcase model
+!ollama pull qwen2.5:7b-q4_K_M
+
+# Keep embed model same as production stack
+!ollama pull nomic-embed-text
+
+# Smoke check
+!curl http://127.0.0.1:11434/api/tags
+```
+
+Expose Colab Ollama via tunnel (choose one):
+
+```bash
+# cloudflared (quick)
+!wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
+!chmod +x cloudflared
+!nohup ./cloudflared tunnel --url http://127.0.0.1:11434 > /content/tunnel.log 2>&1 &
+!sleep 6
+!cat /content/tunnel.log | tail -n 30
+```
+
+Copy the generated `https://...trycloudflare.com` URL and use it as fallback base URL.
+
+### 4. Configure ReBook `rag-service` with Primary + Fallback
+
+Set these variables in your `.env` on EC2 (same folder as `docker-compose.yml`):
+
+```env
+APP_OLLAMA_PRIMARY_BASE_URL=https://<your-colab-tunnel-url>
+APP_OLLAMA_FALLBACK_BASE_URL=http://host.docker.internal:11434
+APP_OLLAMA_ENABLE_FALLBACK=true
+APP_OLLAMA_CHAT_MODEL=gemma:2b
+APP_OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+APP_OLLAMA_REQUEST_TIMEOUT_SECONDS=180
+```
+
+If Ollama fallback is running on a separate EC2 instance, set fallback to that private IP:
+
+```env
+APP_OLLAMA_FALLBACK_BASE_URL=http://<ollama-private-ip>:11434
+```
+
+### 5. Recreate only `rag-service`
+
+```bash
+cd /home/ubuntu/rebook-system
+git pull origin main
+docker compose up -d --force-recreate --no-deps rag-service
+docker logs --tail 200 rebook-rag-service
+```
+
+### 6. Verify Failover Behavior
+
+1. Keep Colab tunnel up and call RAG chat endpoint: it should use primary.
+2. Stop Colab tunnel/session and call again.
+3. `rag-service` should continue via EC2 fallback URL.
+4. Check logs for failover messages:
+
+```bash
+docker logs -f rebook-rag-service | grep -i "fallback\|primary"
+```
+
+### 7. Disk Check Commands (EC2)
+
+```bash
+df -h
+df -h / /var /home
+sudo du -sh /var/lib/docker
+docker system df
+free -h
+nproc
+```
+
+### 8. Demo Cost Control
+
+- Keep `rag-service` always available.
+- Start heavy Colab fallback only during premium demos.
+- Stop Colab session after demo.
+- Keep EC2 primary on `gemma:2b` for stable low-cost baseline.
 ```
 
 ### Inspecting Services

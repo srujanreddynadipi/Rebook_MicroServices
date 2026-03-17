@@ -160,6 +160,17 @@ public class GatewayConfig {
                                                 .uri("lb://chat-service"))
 
                                 // ══════════════════════════════════════════
+                                // RAG SERVICE (lb://rag-service)
+                                // ══════════════════════════════════════════
+
+                                .route("rag-api", r -> r
+                                                .path("/api/rag/**")
+                                                .filters(f -> f
+                                                                .filter(jwtAuthFilter.apply(
+                                                                                new JwtAuthenticationFilter.Config())))
+                                                .uri("lb://rag-service"))
+
+                                // ══════════════════════════════════════════
                                 // NOTIFICATION SERVICE (lb://notification-service)
                                 // ══════════════════════════════════════════
 

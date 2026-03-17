@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # ReBook System — EC2 Bootstrap Script
-# Target: AWS t2.micro, Ubuntu 22.04 LTS
+# Target: AWS m7i-flex.large, Ubuntu 24.04 LTS
 #
 # Usage:
 #   chmod +x setup-ec2.sh && ./setup-ec2.sh
@@ -76,20 +76,10 @@ sudo systemctl start docker
 info "Docker $(docker --version) installed."
 
 # ==============================================================================
-# 3. Install Docker Compose standalone binary (legacy 'docker-compose' command)
-#    This is needed if docker-compose.yml uses the standalone CLI syntax.
+# 3. Verify Docker Compose plugin
 # ==============================================================================
-section "3/7  Installing Docker Compose (standalone)"
-
-COMPOSE_VERSION=$(curl -fsSL https://api.github.com/repos/docker/compose/releases/latest \
-  | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
-
-sudo curl -fsSL \
-  "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
-  -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-
-info "Docker Compose $(docker-compose --version) installed."
+section "3/7  Verifying Docker Compose plugin"
+info "Docker Compose plugin $(docker compose version) is available."
 
 # ==============================================================================
 # 4. Install Git and Java 17
@@ -103,8 +93,7 @@ info "Java $(java -version 2>&1 | head -1) installed."
 
 # ==============================================================================
 # 5. Configure swap space
-#    t2.micro has 1 GB RAM — a 2 GB swap file prevents OOM kills during
-#    docker-compose up when all containers start simultaneously.
+#    For smaller memory instances, swap helps avoid OOM during first startup.
 # ==============================================================================
 section "5/7  Configuring 2 GB swap space"
 
@@ -163,14 +152,20 @@ if [ -f "$ENV_FILE" ]; then
   warn "Edit it manually: nano $ENV_FILE"
 else
   cat > "$ENV_FILE" << 'EOF'
-JWT_SECRET=CHANGE_ME
+APP_JWT_SECRET=CHANGE_ME
+MYSQL_ROOT_PASSWORD=root
 AWS_ACCESS_KEY_ID=CHANGE_ME
 AWS_SECRET_ACCESS_KEY=CHANGE_ME
 APP_AWS_BUCKET_NAME=CHANGE_ME
 APP_AWS_REGION=ap-south-1
 MAIL_USERNAME=CHANGE_ME
 MAIL_PASSWORD=CHANGE_ME
-OPENAI_API_KEY=CHANGE_ME
+APP_OLLAMA_PRIMARY_BASE_URL=CHANGE_ME_COLAB_TUNNEL_URL
+APP_OLLAMA_FALLBACK_BASE_URL=http://host.docker.internal:11434
+APP_OLLAMA_ENABLE_FALLBACK=true
+APP_OLLAMA_CHAT_MODEL=gemma:2b
+APP_OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+APP_OLLAMA_REQUEST_TIMEOUT_SECONDS=180
 EOF
   info ".env created at $ENV_FILE"
 fi
@@ -186,8 +181,8 @@ echo -e "${GREEN}║  Next steps:                                             �
 echo -e "${GREEN}║  1. Log out and back in (activates docker group)         ║${NC}"
 echo -e "${GREEN}║  2. Edit secrets:  nano ~/rebook-system/.env             ║${NC}"
 echo -e "${GREEN}║  3. Start stack:   cd ~/rebook-system                    ║${NC}"
-echo -e "${GREEN}║                    docker-compose up -d                  ║${NC}"
-echo -e "${GREEN}║  4. View logs:     docker-compose logs -f                ║${NC}"
+echo -e "${GREEN}║                    docker compose up -d                  ║${NC}"
+echo -e "${GREEN}║  4. View logs:     docker compose logs -f                ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 warn "Remember to replace {YOUR_USERNAME} in this script's REPO_URL before reuse."

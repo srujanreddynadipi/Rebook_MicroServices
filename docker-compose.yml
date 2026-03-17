@@ -19,6 +19,28 @@ services:
     networks:
       - rebook-network
 
+  rag-postgres:
+    image: pgvector/pgvector:pg16
+    container_name: rebook-rag-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ragdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5544:5432"
+    volumes:
+      - rag_postgres_data:/var/lib/postgresql/data
+      - ./rag-service/src/main/resources/docker-pgvector-init.sql:/docker-entrypoint-initdb.d/01-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ragdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - rebook-network
+
   redis:
     image: redis:7-alpine
     container_name: rebook-redis
@@ -270,6 +292,41 @@ services:
     networks:
       - rebook-network
 
+  rag-service:
+    build: ./rag-service
+    image: srujanreddynadipi/rebook-rag-service:latest
+    container_name: rebook-rag-service
+    restart: unless-stopped
+    depends_on:
+      rag-postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+      APP_OLLAMA_PRIMARY_BASE_URL: ${APP_OLLAMA_PRIMARY_BASE_URL:-}
+      APP_OLLAMA_FALLBACK_BASE_URL: ${APP_OLLAMA_FALLBACK_BASE_URL:-http://host.docker.internal:11434}
+      APP_OLLAMA_ENABLE_FALLBACK: ${APP_OLLAMA_ENABLE_FALLBACK:-true}
+      APP_OLLAMA_CHAT_MODEL: ${APP_OLLAMA_CHAT_MODEL:-gemma:2b}
+      APP_OLLAMA_EMBEDDING_MODEL: ${APP_OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      APP_OLLAMA_REQUEST_TIMEOUT_SECONDS: ${APP_OLLAMA_REQUEST_TIMEOUT_SECONDS:-180}
+      SPRING_AI_OLLAMA_BASE_URL: ${SPRING_AI_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      SPRING_AI_OLLAMA_CHAT_MODEL: ${SPRING_AI_OLLAMA_CHAT_MODEL:-gemma:2b}
+      SPRING_AI_OLLAMA_EMBEDDING_MODEL: ${SPRING_AI_OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+    networks:
+      - rebook-network
+
   frontend:
     build: ./frontend
     image: srujanreddynadipi/rebook-frontend:latest
@@ -307,6 +364,7 @@ volumes:
   redis_data:
   kafka_data:
   piper_data:
+  rag_postgres_data:
 
 networks:
   rebook-network:
