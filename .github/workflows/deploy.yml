@@ -310,16 +310,16 @@ jobs:
 
             $COMPOSE -f docker-compose.rag.yml pull
 
-            # Workaround for docker-compose v1.29.x bug: KeyError 'ContainerConfig' on recreate.
-            $COMPOSE -f docker-compose.rag.yml stop rag-service 2>/dev/null || true
-            $COMPOSE -f docker-compose.rag.yml rm -f -s rag-service 2>/dev/null || true
-
-            # Remove any legacy rag-service containers that may not match current container_name.
-            docker ps -aq --filter "name=rag-service" | xargs -r docker rm -f 2>/dev/null || true
-            docker rm -f rebook-rag-service 2>/dev/null || true
-
-            $COMPOSE -f docker-compose.rag.yml up -d --remove-orphans rag-postgres
-            $COMPOSE -f docker-compose.rag.yml up -d --no-deps rag-service
+            if [ "$COMPOSE" = "docker-compose" ]; then
+              echo "==> Legacy docker-compose v1 detected; using down/up flow to avoid ContainerConfig recreate bug"
+              docker-compose -f docker-compose.rag.yml down --remove-orphans 2>/dev/null || true
+              docker ps -aq --filter "name=rag-service" | xargs -r docker rm -f 2>/dev/null || true
+              docker-compose -f docker-compose.rag.yml up -d rag-postgres
+              docker-compose -f docker-compose.rag.yml up -d --no-deps rag-service
+            else
+              $COMPOSE -f docker-compose.rag.yml up -d --remove-orphans rag-postgres
+              $COMPOSE -f docker-compose.rag.yml up -d --no-deps rag-service
+            fi
 
             echo "==> RAG stack status:"
             $COMPOSE -f docker-compose.rag.yml ps
