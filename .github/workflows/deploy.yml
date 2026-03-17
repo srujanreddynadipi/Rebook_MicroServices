@@ -5,9 +5,13 @@
 # Required GitHub Secrets:
 #   DOCKER_USERNAME        — Docker Hub username
 #   DOCKER_PASSWORD        — Docker Hub password / access token
-#   EC2_HOST               — EC2 instance public IP or hostname
-#   EC2_USERNAME           — EC2 SSH username (e.g. ubuntu, ec2-user)
-#   EC2_SSH_KEY            — EC2 private SSH key (PEM contents)
+#   EC2_HOST               — MAIN stack EC2 public IP or hostname
+#   EC2_USERNAME           — MAIN stack EC2 SSH username (e.g. ubuntu, ec2-user)
+#   EC2_SSH_KEY            — MAIN stack EC2 private SSH key (PEM contents)
+#   RAG_EC2_HOST           — RAG-only EC2 public IP or hostname
+#   RAG_EC2_USERNAME       — RAG-only EC2 SSH username
+#   RAG_EC2_SSH_KEY        — RAG-only EC2 private SSH key (PEM contents)
+#   EUREKA_DEFAULT_ZONE    — Main Eureka URL reachable from RAG instance (e.g. http://<main-private-ip>:8761/eureka/)
 #   JWT_SECRET             — JWT signing secret
 #   AWS_ACCESS_KEY_ID      — AWS access key (S3 / SES)
 #   AWS_SECRET_ACCESS_KEY  — AWS secret key
@@ -15,7 +19,12 @@
 #   APP_AWS_REGION         — AWS region (e.g. us-east-1)
 #   MAIL_USERNAME          — SMTP / SES sender address
 #   MAIL_PASSWORD          — SMTP / SES password
-#   OPENAI_API_KEY         — OpenAI API key (RAG service)
+#   APP_OLLAMA_PRIMARY_BASE_URL   — Colab tunnel URL (primary)
+#   APP_OLLAMA_FALLBACK_BASE_URL  — EC2/local Ollama URL (fallback)
+#   APP_OLLAMA_ENABLE_FALLBACK    — true/false
+#   APP_OLLAMA_CHAT_MODEL         — Chat model name (e.g. gemma:2b)
+#   APP_OLLAMA_EMBEDDING_MODEL    — Embedding model name (e.g. nomic-embed-text)
+#   APP_OLLAMA_REQUEST_TIMEOUT_SECONDS — timeout in seconds
 # ============================================================
 
 name: CI/CD Pipeline
@@ -67,7 +76,8 @@ jobs:
       - name: Build and test notification-service
         run: cd notification-service && mvn clean test -B
 
-      # rag-service is Python/non-Maven — skipped here, built in Docker job only
+      - name: Build and test rag-service
+        run: cd rag-service && mvn clean test -B
 
       - name: Build and test api-gateway
         run: cd api-gateway && mvn clean test -B
@@ -106,7 +116,8 @@ jobs:
             context: ./chat-service
           - service: notification-service
             context: ./notification-service
-          # rag-service skipped — not yet implemented (no src/ or pom.xml)
+          - service: rag-service
+            context: ./rag-service
           - service: api-gateway
             context: ./api-gateway
           - service: eureka-server
@@ -140,15 +151,15 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   # ──────────────────────────────────────────────
-  # Job 3: Deploy to EC2
+  # Job 3: Deploy main stack (excluding rag-service) to MAIN EC2
   # ──────────────────────────────────────────────
-  deploy-to-ec2:
-    name: Deploy to EC2
+  deploy-main-to-ec2:
+    name: Deploy Main Stack to EC2
     needs: build-and-push-docker
     runs-on: ubuntu-latest
 
     steps:
-      - name: SSH into EC2 and deploy
+      - name: SSH into main EC2 and deploy (no rag-service)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -157,16 +168,20 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
+
+            if [ ! -d "$HOME/rebook-system/.git" ]; then
+              git clone https://github.com/${{ github.repository }}.git "$HOME/rebook-system"
+            fi
+
             cd ~/rebook-system
 
-            if [ -z "${{ secrets.JWT_SECRET }}" ] || [ -z "${{ secrets.APP_JWT_SECRET }}" ]; then
-              echo "ERROR: JWT_SECRET and APP_JWT_SECRET must be set in GitHub Secrets"
+            if [ -z "${{ secrets.APP_JWT_SECRET }}" ]; then
+              echo "ERROR: APP_JWT_SECRET must be set in GitHub Secrets"
               exit 1
             fi
 
             echo "==> Writing .env from GitHub secrets..."
             cat > .env << EOF
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
             APP_JWT_SECRET=${{ secrets.APP_JWT_SECRET }}
             MYSQL_ROOT_PASSWORD=root
             AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -175,7 +190,12 @@ jobs:
             APP_AWS_REGION=${{ secrets.APP_AWS_REGION }}
             MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
             MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
-            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            APP_OLLAMA_PRIMARY_BASE_URL=${{ secrets.APP_OLLAMA_PRIMARY_BASE_URL }}
+            APP_OLLAMA_FALLBACK_BASE_URL=${{ secrets.APP_OLLAMA_FALLBACK_BASE_URL }}
+            APP_OLLAMA_ENABLE_FALLBACK=${{ secrets.APP_OLLAMA_ENABLE_FALLBACK }}
+            APP_OLLAMA_CHAT_MODEL=${{ secrets.APP_OLLAMA_CHAT_MODEL }}
+            APP_OLLAMA_EMBEDDING_MODEL=${{ secrets.APP_OLLAMA_EMBEDDING_MODEL }}
+            APP_OLLAMA_REQUEST_TIMEOUT_SECONDS=${{ secrets.APP_OLLAMA_REQUEST_TIMEOUT_SECONDS }}
             EOF
 
             echo "==> Lightweight cleanup (preserve image cache)..."
@@ -187,13 +207,79 @@ jobs:
             echo "==> Pulling latest code..."
             git pull origin main
 
-            echo "==> Pulling latest Docker images..."
-            docker-compose pull
+            if docker compose version >/dev/null 2>&1; then
+              COMPOSE="docker compose"
+            else
+              COMPOSE="docker-compose"
+            fi
 
-            echo "==> Restarting services..."
-            docker-compose up -d --remove-orphans
+            echo "==> Pulling latest Docker images..."
+            $COMPOSE pull
+
+            echo "==> Ensuring rag services are not running on main instance..."
+            $COMPOSE stop rag-service rag-postgres 2>/dev/null || true
+            $COMPOSE rm -f rag-service rag-postgres 2>/dev/null || true
+
+            echo "==> Restarting main services (excluding rag)..."
+            $COMPOSE up -d --remove-orphans \
+              mysql redis zookeeper kafka kafka-ui eureka-server \
+              api-gateway auth-service book-service request-service \
+              chat-service notification-service frontend tts
 
             echo "==> Status:"
-            docker-compose ps
+            $COMPOSE ps
 
             echo "Deployment complete"
+
+  # ──────────────────────────────────────────────
+  # Job 4: Deploy rag-service to SEPARATE RAG EC2
+  # ──────────────────────────────────────────────
+  deploy-rag-to-separate-ec2:
+    name: Deploy RAG to Separate EC2
+    needs: build-and-push-docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH into RAG EC2 and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.RAG_EC2_HOST }}
+          username: ${{ secrets.RAG_EC2_USERNAME }}
+          key: ${{ secrets.RAG_EC2_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -e
+
+            if [ ! -d "$HOME/rebook-system/.git" ]; then
+              git clone https://github.com/${{ github.repository }}.git "$HOME/rebook-system"
+            fi
+
+            cd ~/rebook-system
+
+            echo "==> Writing .env for RAG instance..."
+            cat > .env << EOF
+            APP_JWT_SECRET=${{ secrets.APP_JWT_SECRET }}
+            APP_OLLAMA_PRIMARY_BASE_URL=${{ secrets.APP_OLLAMA_PRIMARY_BASE_URL }}
+            APP_OLLAMA_FALLBACK_BASE_URL=${{ secrets.APP_OLLAMA_FALLBACK_BASE_URL }}
+            APP_OLLAMA_ENABLE_FALLBACK=${{ secrets.APP_OLLAMA_ENABLE_FALLBACK }}
+            APP_OLLAMA_CHAT_MODEL=${{ secrets.APP_OLLAMA_CHAT_MODEL }}
+            APP_OLLAMA_EMBEDDING_MODEL=${{ secrets.APP_OLLAMA_EMBEDDING_MODEL }}
+            APP_OLLAMA_REQUEST_TIMEOUT_SECONDS=${{ secrets.APP_OLLAMA_REQUEST_TIMEOUT_SECONDS }}
+            EUREKA_DEFAULT_ZONE=${{ secrets.EUREKA_DEFAULT_ZONE }}
+            EOF
+
+            echo "==> Pulling latest code and images for RAG stack..."
+            git pull origin main
+
+            if docker compose version >/dev/null 2>&1; then
+              COMPOSE="docker compose"
+            else
+              COMPOSE="docker-compose"
+            fi
+
+            $COMPOSE -f docker-compose.rag.yml pull
+            $COMPOSE -f docker-compose.rag.yml up -d --remove-orphans
+
+            echo "==> RAG stack status:"
+            $COMPOSE -f docker-compose.rag.yml ps
+            echo "RAG deployment complete"
