@@ -211,7 +211,7 @@ public class StudyMaterialAudioService {
             try (OutputStream output = socket.getOutputStream(); InputStream input = socket.getInputStream()) {
                 Map<String, Object> eventData = new HashMap<>();
                 eventData.put("text", text);
-                if (hasText(voiceOverride)) {
+                if (isLikelyPiperVoice(voiceOverride)) {
                     eventData.put("voice", Map.of("name", voiceOverride));
                 }
 
@@ -338,6 +338,20 @@ public class StudyMaterialAudioService {
 
     private boolean usesPiperProvider() {
         return hasText(provider) && "piper".equalsIgnoreCase(provider.trim());
+    }
+
+    private boolean isLikelyPiperVoice(String value) {
+        if (!hasText(value)) {
+            return false;
+        }
+
+        String candidate = value.trim();
+        // Ignore OpenAI-style voices (alloy/nova/echo/...) when Piper is configured.
+        if (!candidate.contains("_") || !candidate.contains("-")) {
+            return false;
+        }
+
+        return candidate.matches("^[A-Za-z]{2}_[A-Za-z]{2}[-_].+");
     }
 
     private URI parsePiperUri(String value) {
