@@ -309,7 +309,13 @@ jobs:
             fi
 
             $COMPOSE -f docker-compose.rag.yml pull
-            $COMPOSE -f docker-compose.rag.yml up -d --remove-orphans
+
+            # Workaround for docker-compose v1.29.x bug: KeyError 'ContainerConfig' on recreate.
+            $COMPOSE -f docker-compose.rag.yml stop rag-service 2>/dev/null || true
+            docker rm -f rebook-rag-service 2>/dev/null || true
+
+            $COMPOSE -f docker-compose.rag.yml up -d --remove-orphans rag-postgres
+            $COMPOSE -f docker-compose.rag.yml up -d --no-deps rag-service
 
             echo "==> RAG stack status:"
             $COMPOSE -f docker-compose.rag.yml ps
