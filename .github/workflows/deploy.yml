@@ -77,6 +77,7 @@ jobs:
         run: cd notification-service && mvn clean test -B
 
       - name: Build and test rag-service
+        if: ${{ hashFiles('rag-service/pom.xml') != '' }}
         run: cd rag-service && mvn clean test -B
 
       - name: Build and test api-gateway
@@ -139,6 +140,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push ${{ matrix.service }}
+        if: ${{ matrix.service != 'rag-service' || hashFiles('rag-service/pom.xml') != '' }}
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -237,6 +239,7 @@ jobs:
   deploy-rag-to-separate-ec2:
     name: Deploy RAG to Separate EC2
     needs: build-and-push-docker
+    if: ${{ hashFiles('docker-compose.rag.yml') != '' && hashFiles('rag-service/pom.xml') != '' }}
     runs-on: ubuntu-latest
 
     steps:
