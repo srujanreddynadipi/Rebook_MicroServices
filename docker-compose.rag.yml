@@ -16,8 +16,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres -d ragdb"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 20s
+      retries: 15
+      start_period: 60s
     networks:
       - rebook-network
 
@@ -40,6 +40,7 @@ services:
       APP_OLLAMA_EMBEDDING_MODEL: ${APP_OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
       APP_OLLAMA_REQUEST_TIMEOUT_SECONDS: ${APP_OLLAMA_REQUEST_TIMEOUT_SECONDS:-180}
       EUREKA_DEFAULT_ZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka/}
+      EUREKA_INSTANCE_IP: ${EUREKA_INSTANCE_IP:-}
       SPRING_AI_OLLAMA_BASE_URL: ${APP_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       SPRING_AI_OLLAMA_CHAT_MODEL: ${SPRING_AI_OLLAMA_CHAT_MODEL:-gemma:2b}
       SPRING_AI_OLLAMA_EMBEDDING_MODEL: ${SPRING_AI_OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}

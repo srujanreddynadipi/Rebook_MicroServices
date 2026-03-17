@@ -289,6 +289,9 @@ jobs:
               exit 0
             fi
 
+            RAG_PRIVATE_IP=$(hostname -I | awk '{print $1}')
+            echo "Detected RAG private IP: $RAG_PRIVATE_IP"
+
             echo "==> Writing .env for RAG instance..."
             cat > .env << EOF
             APP_JWT_SECRET=${{ secrets.APP_JWT_SECRET }}
@@ -297,6 +300,7 @@ jobs:
             APP_OLLAMA_EMBEDDING_MODEL=${{ secrets.APP_OLLAMA_EMBEDDING_MODEL }}
             APP_OLLAMA_REQUEST_TIMEOUT_SECONDS=${{ secrets.APP_OLLAMA_REQUEST_TIMEOUT_SECONDS }}
             EUREKA_DEFAULT_ZONE=${{ secrets.EUREKA_DEFAULT_ZONE }}
+            EUREKA_INSTANCE_IP=$RAG_PRIVATE_IP
             EOF
 
             echo "==> Pulling latest code and images for RAG stack..."
