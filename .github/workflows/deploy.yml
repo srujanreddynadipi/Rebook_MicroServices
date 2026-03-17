@@ -239,7 +239,6 @@ jobs:
   deploy-rag-to-separate-ec2:
     name: Deploy RAG to Separate EC2
     needs: build-and-push-docker
-    if: ${{ hashFiles('docker-compose.rag.yml') != '' && hashFiles('rag-service/pom.xml') != '' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -258,6 +257,11 @@ jobs:
             fi
 
             cd ~/rebook-system
+
+            if [ ! -f "docker-compose.rag.yml" ] || [ ! -f "rag-service/pom.xml" ]; then
+              echo "RAG deploy skipped: docker-compose.rag.yml or rag-service/pom.xml missing"
+              exit 0
+            fi
 
             echo "==> Writing .env for RAG instance..."
             cat > .env << EOF
