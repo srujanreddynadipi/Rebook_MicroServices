@@ -114,6 +114,7 @@ export const convertDocumentToAudiobook = ({ file, voice }) => {
     .post(`${BOOKS_BASE}/study-material/audiobook${query}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       responseType: 'blob',
+      timeout: 300000,
     })
     .then((res) => {
       let fileName = 'audiobook.mp3';

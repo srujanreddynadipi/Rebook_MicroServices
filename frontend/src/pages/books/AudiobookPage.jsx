@@ -16,9 +16,9 @@ function humanFileSize(bytes) {
 
 export default function AudiobookPage() {
   const [file, setFile] = useState(null);
-  const [voice, setVoice] = useState('alloy');
+  const [voice, setVoice] = useState('');
   const [audioUrl, setAudioUrl] = useState('');
-  const [audioFileName, setAudioFileName] = useState('audiobook.mp3');
+  const [audioFileName, setAudioFileName] = useState('audiobook.wav');
 
   const fileExt = useMemo(() => {
     if (!file?.name) return '';
@@ -35,7 +35,7 @@ export default function AudiobookPage() {
       }
       const nextUrl = URL.createObjectURL(blob);
       setAudioUrl(nextUrl);
-      setAudioFileName(fileName || 'audiobook.mp3');
+      setAudioFileName(fileName || 'audiobook.wav');
       toast.success('Audiobook generated successfully');
     },
     onError: (err) => {
@@ -153,6 +153,8 @@ export default function AudiobookPage() {
                   fontFamily: "'DM Sans', sans-serif",
                 }}
               >
+                <option value="">Default (fastest)</option>
+                <option value="en_US-lessac-medium">English (Lessac Medium)</option>
                 <option value="alloy">Alloy</option>
                 <option value="echo">Echo</option>
                 <option value="fable">Fable</option>
@@ -160,6 +162,9 @@ export default function AudiobookPage() {
                 <option value="nova">Nova</option>
                 <option value="shimmer">Shimmer</option>
               </select>
+              <p style={{ marginTop: 8, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                For Piper mode, choose Default or a Piper voice name for fastest conversion.
+              </p>
             </div>
           </div>
 

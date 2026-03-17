@@ -24,5 +24,5 @@ app:
       coqui-speaker-id: ${APP_AUDIOBOOK_TTS_COQUI_SPEAKER_ID:}
       coqui-language-id: ${APP_AUDIOBOOK_TTS_COQUI_LANGUAGE_ID:}
       response-format: ${APP_AUDIOBOOK_TTS_RESPONSE_FORMAT:wav}
-      max-chars-per-chunk: ${APP_AUDIOBOOK_TTS_MAX_CHARS_PER_CHUNK:3500}
-      max-total-chars: ${APP_AUDIOBOOK_TTS_MAX_TOTAL_CHARS:50000}
+      max-chars-per-chunk: ${APP_AUDIOBOOK_TTS_MAX_CHARS_PER_CHUNK:2000}
+      max-total-chars: ${APP_AUDIOBOOK_TTS_MAX_TOTAL_CHARS:12000}
