@@ -1,6 +1,27 @@
 ssh -i rebook-key.pem ubuntu@13.203.12.138 // connect terminal in lap
 
+//to connect to the rag instance
 ssh -i "C:\Users\sruja\Downloads\rag_key.pem" ubuntu@3.111.82.100
+
+cd ~/rebook-system
+
+# Stop and remove containers (keep volume)
+docker-compose -f docker-compose.rag.yml down
+
+# Start fresh with new .env
+docker-compose -f docker-compose.rag.yml up -d
+
+# Wait for startup
+sleep 20
+
+# Check status
+docker-compose -f docker-compose.rag.yml ps
+
+# Check logs for Eureka success
+docker logs --tail 100 rebook-rag-service | grep -i "eureka\|started\|registered"
+
+# Health check
+curl http://localhost:8086/actuator/health
 
 
 //Commands to check space and health on any EC2
