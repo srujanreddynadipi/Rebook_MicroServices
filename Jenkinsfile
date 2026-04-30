@@ -89,22 +89,30 @@ pipeline {
     stage('Build & Push Docker Images') {
       steps {
         script {
-          def dockerHub = (env.DOCKER_HUB?.trim()) ? env.DOCKER_HUB.trim() : 'srujanreddynadipi'
           def services = [
             'auth-service','book-service','request-service','chat-service','notification-service','api-gateway','eureka-server'
           ]
 
           withCredentials([usernamePassword(credentialsId: DOCKER_CREDS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+            def dockerHub = DOCKER_USERNAME.trim()
             services.each { svc ->
               def buildTag = "${dockerHub}/rebook-${svc}:${DOCKER_TAG}"
-              sh """
-                ${env.MAVEN_BIN} -f ${svc}/pom.xml -B -DskipTests package \
-                  com.google.cloud.tools:jib-maven-plugin:${env.JIB_VERSION}:build \
-                  -Djib.to.image=${buildTag} \
-                  -Djib.to.tags=latest \
-                  -Djib.to.auth.username=$DOCKER_USERNAME \
-                  -Djib.to.auth.password=$DOCKER_PASSWORD
-              """
+              withEnv([
+                "SERVICE_NAME=${svc}",
+                "IMAGE_TAG=${buildTag}",
+                "MAVEN_BIN=${env.MAVEN_BIN}",
+                "JIB_VERSION=${env.JIB_VERSION}"
+              ]) {
+                sh '''
+                  set -e
+                  "$MAVEN_BIN" -f "$SERVICE_NAME/pom.xml" -B -DskipTests package \
+                    com.google.cloud.tools:jib-maven-plugin:"$JIB_VERSION":build \
+                    -Djib.to.image="$IMAGE_TAG" \
+                    -Djib.to.tags=latest \
+                    -Djib.to.auth.username="$DOCKER_USERNAME" \
+                    -Djib.to.auth.password="$DOCKER_PASSWORD"
+                '''
+              }
             }
           }
 
