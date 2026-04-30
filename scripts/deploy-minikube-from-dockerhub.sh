@@ -5,7 +5,14 @@ set -euo pipefail
 #   DOCKER_USER=srujanreddynadipi APP_JWT_SECRET='your-secret' bash scripts/deploy-minikube-from-dockerhub.sh
 
 : "${DOCKER_USER:?Set DOCKER_USER, e.g. srujanreddynadipi}"
-: "${APP_JWT_SECRET:?Set APP_JWT_SECRET}"
+
+if [ -z "${APP_JWT_SECRET:-}" ] && [ -f .env ]; then
+  set -a
+  . ./.env
+  set +a
+fi
+
+: "${APP_JWT_SECRET:?Set APP_JWT_SECRET or create .env on the EC2 host}"
 
 REPO_DIR="${REPO_DIR:-$HOME/rebook-system}"
 cd "$REPO_DIR"

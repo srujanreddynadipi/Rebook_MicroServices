@@ -27,6 +27,7 @@ pipeline {
   environment {
     DOCKER_HUB = "${DOCKER_USERNAME}" // must be set in Jenkins credentials/environment
     DOCKER_CREDS_ID = 'docker-hub-creds'
+    EC2_SSH_CRED_ID = 'ec2-ssh-key'
     KUBECONFIG_CRED = 'kubeconfig' // optional: kubeconfig credential id
     DOCKER_TAG = "${env.BUILD_NUMBER ?: 'latest'}"
     MAVEN_VERSION = '3.9.9'
@@ -124,14 +125,29 @@ pipeline {
     stage('Deploy to Minikube') {
       steps {
         script {
-          // Assumes Jenkins has kubectl access (minikube tunnel or kubeconfig provided)
-          sh 'kubectl apply -f k8s/namespace.yaml'
-          sh 'kubectl apply -f k8s/mysql-secret.yaml'
-          sh 'kubectl apply -f k8s/mysql-pvc.yaml'
-          sh 'kubectl apply -f k8s/mysql-deployment.yaml'
-          sh 'kubectl apply -f k8s/deployments.yaml'
-          sh 'kubectl apply -f k8s/ingress.yaml'
-          sh 'kubectl apply -f k8s/hpa.yaml'
+          withCredentials([
+            sshUserPrivateKey(credentialsId: EC2_SSH_CRED_ID, keyFileVariable: 'EC2_KEY_FILE', usernameVariable: 'EC2_USER_FROM_CRED')
+          ]) {
+            def ec2Host = env.EC2_HOST?.trim()
+            def ec2User = env.EC2_USERNAME?.trim() ?: EC2_USER_FROM_CRED
+
+            if (!ec2Host) {
+              error('Set EC2_HOST in Jenkins before running the deploy stage.')
+            }
+
+            sh """
+              set -e
+              ssh -i "$EC2_KEY_FILE" \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                ${ec2User}@${ec2Host} 'bash -s' <<'EOF'
+              set -euo pipefail
+              export DOCKER_USER='${DOCKER_USERNAME}'
+              export REPO_DIR="\$HOME/rebook-system"
+              bash "\$REPO_DIR/scripts/deploy-minikube-from-dockerhub.sh"
+EOF
+            """
+          }
         }
       }
     }

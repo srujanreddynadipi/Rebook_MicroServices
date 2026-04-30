@@ -61,10 +61,13 @@ The included `Jenkinsfile` is a starter pipeline that:
 
 **Configure Jenkins credentials:**
 - `docker-hub-creds`: Docker Hub username/password
+- `ec2-ssh-key`: SSH private key for the Minikube EC2 host
 - `kubeconfig`: (optional) Kubernetes config if Jenkins needs remote cluster access
 
 **Set Jenkins environment:**
 - `DOCKER_USERNAME`: Your Docker Hub namespace (e.g., `srujanreddynadipi`)
+- `EC2_HOST`: Public host/IP of the EC2 instance running Minikube
+- `EC2_USERNAME`: SSH user for that instance, if different from the credential default
 
 ## Deploying to EC2
 
