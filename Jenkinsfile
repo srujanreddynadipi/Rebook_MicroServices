@@ -1,3 +1,26 @@
+def ensureMaven(String workspaceDir, String mavenVersion) {
+  def mavenHome = "${workspaceDir}/.tools/apache-maven-${mavenVersion}"
+  def mavenBin = "${mavenHome}/bin/mvn"
+
+  if (sh(script: "test -x '${mavenBin}'", returnStatus: true) != 0) {
+    sh """
+      set -e
+      mkdir -p '${workspaceDir}/.tools'
+      if [ ! -f '${workspaceDir}/.tools/apache-maven-${mavenVersion}-bin.tar.gz' ]; then
+        if command -v curl >/dev/null 2>&1; then
+          curl -fsSL https://archive.apache.org/dist/maven/maven-3/${mavenVersion}/binaries/apache-maven-${mavenVersion}-bin.tar.gz -o '${workspaceDir}/.tools/apache-maven-${mavenVersion}-bin.tar.gz'
+        else
+          wget -qO '${workspaceDir}/.tools/apache-maven-${mavenVersion}-bin.tar.gz' https://archive.apache.org/dist/maven/maven-3/${mavenVersion}/binaries/apache-maven-${mavenVersion}-bin.tar.gz
+        fi
+      fi
+      rm -rf '${mavenHome}'
+      tar -xzf '${workspaceDir}/.tools/apache-maven-${mavenVersion}-bin.tar.gz' -C '${workspaceDir}/.tools'
+    """
+  }
+
+  return mavenBin
+}
+
 pipeline {
   agent any
 
@@ -6,6 +29,8 @@ pipeline {
     DOCKER_CREDS_ID = 'docker-hub-creds'
     KUBECONFIG_CRED = 'kubeconfig' // optional: kubeconfig credential id
     DOCKER_TAG = "${env.BUILD_NUMBER ?: 'latest'}"
+    MAVEN_VERSION = '3.9.9'
+    JIB_VERSION = '3.4.4'
   }
 
   stages {
@@ -14,76 +39,48 @@ pipeline {
         checkout scm
       }
     }
+    stage('Prepare Build Tooling') {
+      steps {
+        script {
+          env.MAVEN_BIN = ensureMaven(env.WORKSPACE, env.MAVEN_VERSION)
+        }
+      }
+    }
     stage('Build Java Services') {
       parallel {
         stage('auth') {
           steps {
-            sh '''docker run --rm \
-              -v /var/jenkins_home/.m2:/root/.m2 \
-              -v "${WORKSPACE}":"${WORKSPACE}" \
-              -w "${WORKSPACE}/auth-service" \
-              maven:3.8.8-openjdk-17 \
-              mvn -f pom.xml -B -DskipTests package'''
+            sh "${env.MAVEN_BIN} -f auth-service/pom.xml -B -DskipTests package"
           }
         }
         stage('book') {
           steps {
-            sh '''docker run --rm \
-              -v /var/jenkins_home/.m2:/root/.m2 \
-              -v "${WORKSPACE}":"${WORKSPACE}" \
-              -w "${WORKSPACE}/book-service" \
-              maven:3.8.8-openjdk-17 \
-              mvn -f pom.xml -B -DskipTests package'''
+            sh "${env.MAVEN_BIN} -f book-service/pom.xml -B -DskipTests package"
           }
         }
         stage('request') {
           steps {
-            sh '''docker run --rm \
-              -v /var/jenkins_home/.m2:/root/.m2 \
-              -v "${WORKSPACE}":"${WORKSPACE}" \
-              -w "${WORKSPACE}/request-service" \
-              maven:3.8.8-openjdk-17 \
-              mvn -f pom.xml -B -DskipTests package'''
+            sh "${env.MAVEN_BIN} -f request-service/pom.xml -B -DskipTests package"
           }
         }
         stage('chat') {
           steps {
-            sh '''docker run --rm \
-              -v /var/jenkins_home/.m2:/root/.m2 \
-              -v "${WORKSPACE}":"${WORKSPACE}" \
-              -w "${WORKSPACE}/chat-service" \
-              maven:3.8.8-openjdk-17 \
-              mvn -f pom.xml -B -DskipTests package'''
+            sh "${env.MAVEN_BIN} -f chat-service/pom.xml -B -DskipTests package"
           }
         }
         stage('notification') {
           steps {
-            sh '''docker run --rm \
-              -v /var/jenkins_home/.m2:/root/.m2 \
-              -v "${WORKSPACE}":"${WORKSPACE}" \
-              -w "${WORKSPACE}/notification-service" \
-              maven:3.8.8-openjdk-17 \
-              mvn -f pom.xml -B -DskipTests package'''
+            sh "${env.MAVEN_BIN} -f notification-service/pom.xml -B -DskipTests package"
           }
         }
         stage('apigw') {
           steps {
-            sh '''docker run --rm \
-              -v /var/jenkins_home/.m2:/root/.m2 \
-              -v "${WORKSPACE}":"${WORKSPACE}" \
-              -w "${WORKSPACE}/api-gateway" \
-              maven:3.8.8-openjdk-17 \
-              mvn -f pom.xml -B -DskipTests package'''
+            sh "${env.MAVEN_BIN} -f api-gateway/pom.xml -B -DskipTests package"
           }
         }
         stage('eureka') {
           steps {
-            sh '''docker run --rm \
-              -v /var/jenkins_home/.m2:/root/.m2 \
-              -v "${WORKSPACE}":"${WORKSPACE}" \
-              -w "${WORKSPACE}/eureka-server" \
-              maven:3.8.8-openjdk-17 \
-              mvn -f pom.xml -B -DskipTests package'''
+            sh "${env.MAVEN_BIN} -f eureka-server/pom.xml -B -DskipTests package"
           }
         }
       }
@@ -94,18 +91,24 @@ pipeline {
         script {
           def dockerHub = (env.DOCKER_HUB?.trim()) ? env.DOCKER_HUB.trim() : 'srujanreddynadipi'
           def services = [
-            'auth-service','book-service','request-service','chat-service','notification-service','api-gateway','eureka-server','frontend'
+            'auth-service','book-service','request-service','chat-service','notification-service','api-gateway','eureka-server'
           ]
 
-          docker.withRegistry('https://registry.hub.docker.com', DOCKER_CREDS_ID) {
+          withCredentials([usernamePassword(credentialsId: DOCKER_CREDS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
             services.each { svc ->
               def buildTag = "${dockerHub}/rebook-${svc}:${DOCKER_TAG}"
-              def latestTag = "${dockerHub}/rebook-${svc}:latest"
-              sh "docker build -t ${buildTag} -t ${latestTag} ${svc}"
-              sh "docker push ${buildTag}"
-              sh "docker push ${latestTag}"
+              sh """
+                ${env.MAVEN_BIN} -f ${svc}/pom.xml -B -DskipTests package \
+                  com.google.cloud.tools:jib-maven-plugin:${env.JIB_VERSION}:build \
+                  -Djib.to.image=${buildTag} \
+                  -Djib.to.tags=latest \
+                  -Djib.to.auth.username=$DOCKER_USERNAME \
+                  -Djib.to.auth.password=$DOCKER_PASSWORD
+              """
             }
           }
+
+          echo 'Skipping frontend image build in Jenkins because the agent has no Docker CLI; Kubernetes will continue using the existing frontend image.'
         }
       }
     }

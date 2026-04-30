@@ -54,7 +54,8 @@ kubectl apply -f k8s/hpa.yaml
 
 The included `Jenkinsfile` is a starter pipeline that:
 - Builds JARs for all services
-- Builds and pushes Docker images to Docker Hub
+- Bootstraps Maven inside the workspace if Jenkins does not have it installed
+- Builds and pushes Docker images to Docker Hub using Jib, so Jenkins does not need a local Docker CLI
   - Tags: `:${BUILD_NUMBER}` and `:latest`
 - Applies Kubernetes manifests to Minikube cluster
 
