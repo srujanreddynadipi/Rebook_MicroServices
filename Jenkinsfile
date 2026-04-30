@@ -14,16 +14,29 @@ pipeline {
         checkout scm
       }
     }
-
     stage('Build Java Services') {
       parallel {
-        auth: { sh 'mvn -f auth-service/pom.xml -B -DskipTests package' }
-        book: { sh 'mvn -f book-service/pom.xml -B -DskipTests package' }
-        request: { sh 'mvn -f request-service/pom.xml -B -DskipTests package' }
-        chat: { sh 'mvn -f chat-service/pom.xml -B -DskipTests package' }
-        notification: { sh 'mvn -f notification-service/pom.xml -B -DskipTests package' }
-        apigw: { sh 'mvn -f api-gateway/pom.xml -B -DskipTests package' }
-        eureka: { sh 'mvn -f eureka-server/pom.xml -B -DskipTests package' }
+        stage('auth') {
+          steps { sh 'mvn -f auth-service/pom.xml -B -DskipTests package' }
+        }
+        stage('book') {
+          steps { sh 'mvn -f book-service/pom.xml -B -DskipTests package' }
+        }
+        stage('request') {
+          steps { sh 'mvn -f request-service/pom.xml -B -DskipTests package' }
+        }
+        stage('chat') {
+          steps { sh 'mvn -f chat-service/pom.xml -B -DskipTests package' }
+        }
+        stage('notification') {
+          steps { sh 'mvn -f notification-service/pom.xml -B -DskipTests package' }
+        }
+        stage('apigw') {
+          steps { sh 'mvn -f api-gateway/pom.xml -B -DskipTests package' }
+        }
+        stage('eureka') {
+          steps { sh 'mvn -f eureka-server/pom.xml -B -DskipTests package' }
+        }
       }
     }
 
