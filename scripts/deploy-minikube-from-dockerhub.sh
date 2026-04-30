@@ -28,11 +28,20 @@ kubectl -n rebook create secret generic app-secret \
 kubectl apply -f k8s/mysql-pvc.yaml
 kubectl apply -f k8s/mysql-deployment.yaml
 kubectl apply -f k8s/deployments.yaml
+kubectl apply -f k8s/nodeport-services.yaml
 kubectl apply -f k8s/hpa.yaml
 kubectl apply -f k8s/ingress.yaml
 
+echo "====== Deployment Complete ======"
 kubectl -n rebook get pods
 kubectl -n rebook get svc
 kubectl -n rebook get ingress
 
-echo "Deployment complete. If needed: minikube tunnel"
+echo ""
+echo "====== NodePort Access (for external access via EC2 public IP) ======"
+echo "Get your EC2 public IP from AWS console, then:"
+echo "  API Gateway:  http://<EC2_PUBLIC_IP>:30080"
+echo "  Frontend:     http://<EC2_PUBLIC_IP>:30001"
+echo ""
+echo "Ensure AWS Security Group allows inbound traffic on ports 30080 and 30001"
+

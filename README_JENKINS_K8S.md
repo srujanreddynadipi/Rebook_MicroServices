@@ -1,6 +1,15 @@
 This branch (`jenkins-k8s-learning`) contains a minimal Jenkins + Kubernetes (Minikube) CI/CD setup.
 
-Quickstart (local Minikube):
+## Quick Access to Services
+
+After deployment, access services via EC2 public IP using NodePort:
+
+- **API Gateway**: `http://<EC2_PUBLIC_IP>:30080`
+- **Frontend**: `http://<EC2_PUBLIC_IP>:30001`
+
+**Important**: Update AWS Security Group to allow inbound traffic on ports 30080 and 30001. See [EC2_NODEPORT_ACCESS.md](EC2_NODEPORT_ACCESS.md) for detailed setup.
+
+## Quickstart (local Minikube):
 
 1. Install Minikube and enable ingress:
 
@@ -34,20 +43,41 @@ kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/mysql-pvc.yaml
 kubectl apply -f k8s/mysql-deployment.yaml
 kubectl apply -f k8s/deployments.yaml
+kubectl apply -f k8s/nodeport-services.yaml
 kubectl apply -f k8s/ingress.yaml
 kubectl apply -f k8s/hpa.yaml
 ```
 
 5. Edit the `k8s/deployments.yaml` image fields to use your Docker Hub username (or use images built directly into Minikube's Docker).
 
-Jenkins notes:
-- The included `Jenkinsfile` is a starter pipeline that builds JARs, builds Docker images, pushes to Docker Hub, and applies K8s manifests to the Minikube cluster.
-- Configure Jenkins credentials: `docker-hub-creds` (username/password) and `kubeconfig` (if Jenkins needs kubeconfig).
+## Jenkins Setup
 
-RAG removal:
-- `rag-service` and `docker-compose.rag.yml` have been removed in this branch only. Main and dev branches are unchanged.
+The included `Jenkinsfile` is a starter pipeline that:
+- Builds JARs for all services
+- Builds and pushes Docker images to Docker Hub
+  - Tags: `:${BUILD_NUMBER}` and `:latest`
+- Applies Kubernetes manifests to Minikube cluster
 
-If you want, I can:
-- Add complete deployments for all services (auth/book/chat/request/notification/eureka)
+**Configure Jenkins credentials:**
+- `docker-hub-creds`: Docker Hub username/password
+- `kubeconfig`: (optional) Kubernetes config if Jenkins needs remote cluster access
+
+**Set Jenkins environment:**
+- `DOCKER_USERNAME`: Your Docker Hub namespace (e.g., `srujanreddynadipi`)
+
+## Deploying to EC2
+
+See `scripts/setup-ec2-jenkins-minikube.sh` and `scripts/deploy-minikube-from-dockerhub.sh` for automated EC2 setup.
+
+## RAG Removal
+
+- `rag-service` and `docker-compose.rag.yml` have been removed in this branch only.
+- Main and dev branches are unchanged.
+
+## Further Customization
+
+- Add more service deployments in `k8s/deployments.yaml`
 - Provision a Helm chart instead of raw manifests
 - Configure Jenkins inside Minikube as a pod
+- Scale services with HPA (already included)
+- Add Ingress rules for custom domains (already included)
