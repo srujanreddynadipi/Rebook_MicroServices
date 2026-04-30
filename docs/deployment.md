@@ -27,7 +27,6 @@ cd book-service && mvn clean test -B
 cd request-service && mvn clean test -B
 cd chat-service && mvn clean test -B
 cd notification-service && mvn clean test -B
-cd rag-service && mvn clean test -B
 cd api-gateway && mvn clean test -B
 ```
 
@@ -51,7 +50,6 @@ Services pushed:
 - `request-service`
 - `chat-service`
 - `notification-service`
-- `rag-service`
 - `api-gateway`
 - `eureka-server`
 - `frontend`
@@ -74,7 +72,7 @@ Flow:
 5. Cleanup old docker build cache/journal.
 6. `git pull origin main`.
 7. `docker compose pull`.
-8. Stop/remove rag containers on main host.
+8. (RAG removed in this branch; no rag containers to stop on main host.)
 9. Start core stack:
 
 ```bash
@@ -84,20 +82,9 @@ docker compose up -d --remove-orphans \
   chat-service notification-service frontend tts
 ```
 
-### Stage 4: SSH to separate RAG EC2 and deploy RAG stack
+### Stage 4: RAG deployment (removed in this branch)
 
-Job: `deploy-rag-to-separate-ec2`
-
-Flow:
-
-1. Preflight TCP reachability to `RAG_EC2_HOST:22`.
-2. SSH to RAG host.
-3. Clone/pull repository.
-4. Generate `.env` for RAG instance (includes `EUREKA_DEFAULT_ZONE` and private IP).
-5. Pull images with `docker-compose.rag.yml`.
-6. Run `rag-postgres` and `rag-service`.
-
-For legacy compose v1, workflow uses down/up path to avoid recreate bug.
+RAG deployment steps have been removed from this branch. See the `main` branch for original RAG deployment documentation.
 
 ## PR Validation Pipeline
 
@@ -123,10 +110,6 @@ This should be configured as required status checks for protected branches.
 | `EC2_HOST` | Main stack EC2 public host/IP |
 | `EC2_USERNAME` | SSH username on main EC2 |
 | `EC2_SSH_KEY` | PEM private key for main EC2 |
-| `RAG_EC2_HOST` | RAG EC2 public host/IP |
-| `RAG_EC2_USERNAME` | SSH username on RAG EC2 |
-| `RAG_EC2_SSH_KEY` | PEM private key for RAG EC2 |
-| `EUREKA_DEFAULT_ZONE` | Eureka URL reachable from RAG instance |
 | `APP_JWT_SECRET` | JWT signing secret used at runtime |
 | `AWS_ACCESS_KEY_ID` | AWS access key |
 | `AWS_SECRET_ACCESS_KEY` | AWS secret key |
@@ -134,10 +117,6 @@ This should be configured as required status checks for protected branches.
 | `APP_AWS_REGION` | AWS region |
 | `MAIL_USERNAME` | SMTP sender account |
 | `MAIL_PASSWORD` | SMTP credential |
-| `APP_OLLAMA_BASE_URL` | Ollama endpoint |
-| `APP_OLLAMA_CHAT_MODEL` | Chat model name |
-| `APP_OLLAMA_EMBEDDING_MODEL` | Embedding model name |
-| `APP_OLLAMA_REQUEST_TIMEOUT_SECONDS` | LLM request timeout |
 
 ## EC2 Setup
 
@@ -208,9 +187,4 @@ docker compose logs -f --tail=100 api-gateway auth-service book-service request-
 curl http://localhost:8080/actuator/health
 ```
 
-For RAG host:
-
-```bash
-docker compose -f docker-compose.rag.yml ps
-curl http://localhost:8086/actuator/health
-```
+<!-- RAG host commands removed in this branch -->

@@ -461,13 +461,9 @@ free -h
 nproc
 ```
 
-### 8. Demo Cost Control
+### RAG removed in this branch
 
-- Keep `rag-service` always available.
-- Start heavy Colab fallback only during premium demos.
-- Stop Colab session after demo.
-- Keep EC2 primary on `gemma:2b` for stable low-cost baseline.
-```
+RAG-specific deployment and Ollama instructions have been removed in the `jenkins-k8s-learning` branch. See the main branch for the original RAG instructions.
 
 ### Inspecting Services
 

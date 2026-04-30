@@ -47,6 +47,8 @@ Root `.env` is consumed by `docker-compose.yml`.
 | `SPRING_AI_OLLAMA_CHAT_MODEL` | `gemma:2b` | Spring AI chat model |
 | `SPRING_AI_OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | Spring AI embedding model |
 
+> RAG / Ollama variables removed in this branch.
+
 ## Start with Docker Compose (Recommended)
 
 ### 1) Build and launch
@@ -72,7 +74,7 @@ curl http://localhost:8082/actuator/health
 curl http://localhost:8083/actuator/health
 curl http://localhost:8084/actuator/health
 curl http://localhost:8085/actuator/health
-curl http://localhost:8086/actuator/health
+
 ```
 
 ### 4) Access URLs
@@ -104,7 +106,7 @@ Recommended startup order:
 5. chat-service
 6. notification-service
 7. api-gateway
-8. rag-service (if Ollama + rag-postgres are available)
+8. (RAG removed in this branch)
 
 ### Frontend
 
@@ -183,12 +185,6 @@ Fix:
 - Confirm topics exist: `request-events`, `chat-events`, `book-events`.
 - Check consumer group logs for deserialization errors.
 
-### 7) RAG service cannot reach Ollama
+### 7) RAG troubleshooting
 
-Symptoms: `/api/rag/chat` timeout/fail.
-
-Fix:
-
-- Configure `APP_OLLAMA_PRIMARY_BASE_URL` or fallback URL.
-- Ensure Ollama model names match configured values.
-- Increase `APP_OLLAMA_REQUEST_TIMEOUT_SECONDS` if needed.
+- RAG and Ollama instructions removed in this branch. See `main` branch for original troubleshooting steps.

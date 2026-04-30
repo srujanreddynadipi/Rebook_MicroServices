@@ -205,10 +205,9 @@ Table: `notifications`
 - `reference_id` BIGINT
 - `created_at` TIMESTAMP
 
-### RAG Service (`ragdb` in Postgres)
+### RAG Service
 
-- Uses pgvector-backed entities for chunks/embeddings.
-- Stores documents and chunk vectors for semantic retrieval.
+- RAG functionality removed in this branch. See `main` branch for RAG-specific architecture.
 
 ## Security Architecture
 
@@ -279,10 +278,7 @@ On valid token, gateway propagates:
 
 ### RAG Service Boundary
 
-- Owns document indexing, chunking, embedding generation, and retrieval.
-- Uses pgvector-backed Postgres for semantic search.
-- Calls Ollama endpoint(s) for generation and embeddings.
-- Is routed through gateway under `/api/rag/**`.
+- (RAG removed in this branch)
 
 ## Reliability and Failure Behavior
 
@@ -313,7 +309,7 @@ On valid token, gateway propagates:
 - `request_db.book_requests` + `request_db.reviews` are authoritative for transaction lifecycle and peer feedback.
 - `chat_db.messages` is authoritative for conversation history.
 - `notification_db.notifications` is authoritative for user notification feed.
-- `ragdb` (Postgres + pgvector) is authoritative for semantic retrieval artifacts.
+<!-- RAG datastore removed in this branch -->
 
 ## Observability and Diagnostics
 
@@ -355,7 +351,7 @@ On valid token, gateway propagates:
 - gateway should scale for connection count and auth throughput.
 - request-service and notification-service require stable Kafka connectivity.
 - chat-service requires websocket-aware load balancing and sticky/session strategy if scaled.
-- rag-service sizing should account for embedding model and prompt context window load.
+ - (RAG removed in this branch)
 
 ## Data Consistency Model
 
@@ -391,19 +387,19 @@ On valid token, gateway propagates:
 
 ### Named Volumes
 
-- `mysql_data`, `redis_data`, `kafka_data`, `piper_data`, `rag_postgres_data`.
+- `mysql_data`, `redis_data`, `kafka_data`, `piper_data`.
 
 ### Health Checks
 
 - Core services include actuator-based health checks.
-- mysql/redis/kafka/rag-postgres use protocol-specific checks.
+ - mysql/redis/kafka use protocol-specific checks.
 
 ### EC2 Topology
 
 Deployment pipeline targets two EC2 environments:
 
 1. Main EC2: frontend, gateway, eureka, auth, book, request, chat, notification, mysql, redis, kafka stack.
-2. Separate RAG EC2: rag-service + rag-postgres with `EUREKA_DEFAULT_ZONE` pointed to main stack Eureka.
+2. Separate RAG EC2: (RAG deployment removed in this branch)
 
 ### S3 Image Storage Pattern
 

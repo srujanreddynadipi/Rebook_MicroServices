@@ -12,7 +12,6 @@
 #   • build-and-test / Build and test request-service
 #   • build-and-test / Build and test chat-service
 #   • build-and-test / Build and test notification-service
-#   • build-and-test / Build and test rag-service
 #   • build-and-test / Build and test api-gateway
 #   • build-and-test / Build React frontend
 # ============================================================
@@ -66,9 +65,7 @@ jobs:
       - name: Build and test notification-service
         run: cd notification-service && mvn clean test -B
 
-      - name: Build and test rag-service
-        if: ${{ hashFiles('rag-service/pom.xml') != '' }}
-        run: cd rag-service && mvn clean test -B
+      # RAG build removed in this branch
 
       - name: Build and test api-gateway
         run: cd api-gateway && mvn clean test -B

@@ -40,7 +40,7 @@ Important keys from `application.yml`:
 | `chat-api` | ALL | `/api/messages/**` | `lb://chat-service` | Yes |
 | `chat-websocket` | WS | `/ws/**` | `lb://chat-service` | WS auth in chat service |
 | `notifications-get` | GET/PUT | `/api/notifications/**` | `lb://notification-service` | Yes |
-| `rag-api` | ALL | `/api/rag/**` | `lb://rag-service` | Yes |
+
 
 ## Key Classes
 

@@ -132,7 +132,6 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push ${{ matrix.service }}
-        if: ${{ matrix.service != 'rag-service' || hashFiles('rag-service/pom.xml') != '' }}
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
