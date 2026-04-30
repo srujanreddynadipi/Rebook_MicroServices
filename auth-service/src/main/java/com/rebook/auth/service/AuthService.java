@@ -46,7 +46,7 @@ public class AuthService {
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
                 .role(Role.ROLE_USER)
-                .build();
+                .build(); 
 
         User savedUser = userRepository.save(user);
 

@@ -74,10 +74,6 @@ jobs:
       - name: Build and test notification-service
         run: cd notification-service && mvn clean test -B
 
-      - name: Build and test rag-service
-        if: ${{ hashFiles('rag-service/pom.xml') != '' }}
-        run: cd rag-service && mvn clean test -B
-
       - name: Build and test api-gateway
         run: cd api-gateway && mvn clean test -B
 
@@ -115,8 +111,6 @@ jobs:
             context: ./chat-service
           - service: notification-service
             context: ./notification-service
-          - service: rag-service
-            context: ./rag-service
           - service: api-gateway
             context: ./api-gateway
           - service: eureka-server
@@ -230,8 +224,7 @@ jobs:
             $COMPOSE pull
 
             echo "==> Ensuring rag services are not running on main instance..."
-            $COMPOSE stop rag-service rag-postgres 2>/dev/null || true
-            $COMPOSE rm -f rag-service rag-postgres 2>/dev/null || true
+            echo "RAG services removed in this branch; skipping rag stop/remove"
 
             echo "==> Restarting main services (excluding rag)..."
             $COMPOSE up -d --remove-orphans \
@@ -245,86 +238,4 @@ jobs:
             echo "Deployment complete"
 
   # ──────────────────────────────────────────────
-  # Job 4: Deploy rag-service to SEPARATE RAG EC2
-  # ──────────────────────────────────────────────
-  deploy-rag-to-separate-ec2:
-    name: Deploy RAG to Separate EC2
-    needs: build-and-push-docker
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Preflight check - RAG EC2 SSH reachability
-        run: |
-          set -e
-          if [ -z "${{ secrets.RAG_EC2_HOST }}" ]; then
-            echo "ERROR: RAG_EC2_HOST secret is empty"
-            exit 1
-          fi
-
-          echo "Checking TCP connectivity to ${{ secrets.RAG_EC2_HOST }}:22"
-          if ! timeout 15 bash -c "</dev/tcp/${{ secrets.RAG_EC2_HOST }}/22"; then
-            echo "ERROR: Cannot reach ${{ secrets.RAG_EC2_HOST }}:22 from GitHub runner."
-            echo "Check EC2 public IP/hostname, instance state, security group inbound 22, NACL, route table, and any corporate/VPC firewall rules."
-            exit 1
-          fi
-
-      - name: SSH into RAG EC2 and deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.RAG_EC2_HOST }}
-          username: ${{ secrets.RAG_EC2_USERNAME }}
-          key: ${{ secrets.RAG_EC2_SSH_KEY }}
-          command_timeout: 30m
-          script: |
-            set -e
-
-            if [ ! -d "$HOME/rebook-system/.git" ]; then
-              git clone https://github.com/${{ github.repository }}.git "$HOME/rebook-system"
-            fi
-
-            cd ~/rebook-system
-
-            if [ ! -f "docker-compose.rag.yml" ] || [ ! -f "rag-service/pom.xml" ]; then
-              echo "RAG deploy skipped: docker-compose.rag.yml or rag-service/pom.xml missing"
-              exit 0
-            fi
-
-            RAG_PRIVATE_IP=$(hostname -I | awk '{print $1}')
-            echo "Detected RAG private IP: $RAG_PRIVATE_IP"
-
-            echo "==> Writing .env for RAG instance..."
-            cat > .env << EOF
-            APP_JWT_SECRET=${{ secrets.APP_JWT_SECRET }}
-            APP_OLLAMA_BASE_URL=${{ secrets.APP_OLLAMA_BASE_URL }}
-            APP_OLLAMA_CHAT_MODEL=${{ secrets.APP_OLLAMA_CHAT_MODEL }}
-            APP_OLLAMA_EMBEDDING_MODEL=${{ secrets.APP_OLLAMA_EMBEDDING_MODEL }}
-            APP_OLLAMA_REQUEST_TIMEOUT_SECONDS=${{ secrets.APP_OLLAMA_REQUEST_TIMEOUT_SECONDS }}
-            EUREKA_DEFAULT_ZONE=${{ secrets.EUREKA_DEFAULT_ZONE }}
-            EUREKA_INSTANCE_IP=$RAG_PRIVATE_IP
-            EOF
-
-            echo "==> Pulling latest code and images for RAG stack..."
-            git pull origin main
-
-            if docker compose version >/dev/null 2>&1; then
-              COMPOSE="docker compose"
-            else
-              COMPOSE="docker-compose"
-            fi
-
-            $COMPOSE -f docker-compose.rag.yml pull
-
-            if [ "$COMPOSE" = "docker-compose" ]; then
-              echo "==> Legacy docker-compose v1 detected; using down/up flow to avoid ContainerConfig recreate bug"
-              docker-compose -f docker-compose.rag.yml down --remove-orphans 2>/dev/null || true
-              docker ps -aq --filter "name=rag-service" | xargs -r docker rm -f 2>/dev/null || true
-              docker-compose -f docker-compose.rag.yml up -d rag-postgres
-              docker-compose -f docker-compose.rag.yml up -d --no-deps rag-service
-            else
-              $COMPOSE -f docker-compose.rag.yml up -d --remove-orphans rag-postgres
-              $COMPOSE -f docker-compose.rag.yml up -d --no-deps rag-service
-            fi
-
-            echo "==> RAG stack status:"
-            $COMPOSE -f docker-compose.rag.yml ps
-            echo "RAG deployment complete"
+  # RAG deployment job removed in this learning branch

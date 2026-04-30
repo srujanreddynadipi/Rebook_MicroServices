@@ -38,3 +38,6 @@ docker-compose.override.yml
 # ── Logs ────────────────────────────────────────────────
 *.log
 logs/
+
+# ── Generated AI bundle files ───────────────────────────
+**/*_PACKAGE_BUNDLE.md

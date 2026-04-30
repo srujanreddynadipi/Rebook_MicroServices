@@ -26,18 +26,18 @@ Key settings:
 
 ## Endpoints
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/api/auth/register` | No | Register user and return token pair |
-| POST | `/api/auth/login` | No | Login and return token pair |
-| POST | `/api/auth/refresh-token` | No | Rotate access token using refresh token |
-| GET | `/api/users/profile` | Yes | Current user profile by `X-User-Id` |
-| PUT | `/api/users/profile` | Yes | Update own profile |
-| GET | `/api/users/{id}` | Yes | Get profile by id |
-| GET | `/api/admin/users` | Admin | Paginated user list |
-| PUT | `/api/admin/users/{id}/ban` | Admin | Ban user |
-| PUT | `/api/admin/users/{id}/unban` | Admin | Unban user |
-| DELETE | `/api/admin/users/{id}` | Admin | Delete user |
+| Method | Path                          | Auth  | Description                         |
+|------- |-------------------------------|-------|-------------------------------------|
+| POST   | `/api/auth/register`          | No    | Register user and return token pair |
+| POST   | `/api/auth/login`             | No    | Login and return token pair |
+| POST   | `/api/auth/refresh-token`     | No    | Rotate access token using refresh token |
+| GET    | `/api/users/profile`          | Yes   | Current user profile by `X-User-Id` |
+| PUT    | `/api/users/profile`          | Yes   | Update own profile |
+| GET    | `/api/users/{id}`             | Yes   | Get profile by id |
+| GET    | `/api/admin/users`            | Admin | Paginated user list |
+| PUT    | `/api/admin/users/{id}/ban`   | Admin | Ban user |
+| PUT    | `/api/admin/users/{id}/unban` | Admin | Unban user |
+| DELETE | `/api/admin/users/{id}`       | Admin | Delete user |
 
 ## Key Classes
 

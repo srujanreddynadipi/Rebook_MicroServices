@@ -13,7 +13,8 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 
 /**
- * Intercepts WebSocket handshake to validate JWT token from Authorization header
+ * Intercepts WebSocket handshake to validate JWT token from Authorization
+ * header
  * and store user ID in session attributes for later access via Principal.
  */
 @Component
@@ -29,9 +30,9 @@ public class WebSocketJwtInterceptor implements HandshakeInterceptor {
 
     @Override
     public boolean beforeHandshake(org.springframework.http.server.ServerHttpRequest request,
-                                  org.springframework.http.server.ServerHttpResponse response,
-                                  WebSocketHandler wsHandler,
-                                  Map<String, Object> attributes) {
+            org.springframework.http.server.ServerHttpResponse response,
+            WebSocketHandler wsHandler,
+            Map<String, Object> attributes) {
         try {
             // Extract Authorization header
             String authHeader = request.getHeaders().getFirst("Authorization");
@@ -69,16 +70,17 @@ public class WebSocketJwtInterceptor implements HandshakeInterceptor {
             log.error("WebSocket handshake error: {}", e.getMessage(), e);
             try {
                 response.setStatusCode(HttpStatus.UNAUTHORIZED);
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
             return false;
         }
     }
 
     @Override
     public void afterHandshake(org.springframework.http.server.ServerHttpRequest request,
-                              org.springframework.http.server.ServerHttpResponse response,
-                              WebSocketHandler wsHandler,
-                              Exception exception) {
+            org.springframework.http.server.ServerHttpResponse response,
+            WebSocketHandler wsHandler,
+            Exception exception) {
         if (exception != null) {
             log.error("WebSocket handshake afterHandshake error: {}", exception.getMessage());
         }

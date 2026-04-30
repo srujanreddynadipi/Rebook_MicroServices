@@ -76,16 +76,16 @@ public class RequestService {
 
         // 6. Persist request
         String receiverName = resolveDisplayName(
-            book.getOwnerId(),
-            book.getOwnerName(),
-            false);
+                book.getOwnerId(),
+                book.getOwnerName(),
+                false);
 
         BookRequest request = BookRequest.builder()
                 .bookId(dto.getBookId())
                 .senderId(senderId)
                 .senderName(senderName) // Store as-is; toEnrichedResponse will enrich
                 .receiverId(book.getOwnerId())
-            .receiverName(receiverName)
+                .receiverName(receiverName)
                 .requestType(dto.getRequestType())
                 .status(RequestStatus.PENDING)
                 .noOfWeeks(dto.getNoOfWeeks())
@@ -307,8 +307,9 @@ public class RequestService {
 
     private String resolveDisplayName(Long userId, String preferredName, boolean allowIdFallback) {
         // Check if preferredName is a generated placeholder (like "User 2" or "User")
-        boolean isGeneratedPlaceholder = preferredName != null && (preferredName.matches("^User\\s*\\d*$") || preferredName.equals("User"));
-        
+        boolean isGeneratedPlaceholder = preferredName != null
+                && (preferredName.matches("^User\\s*\\d*$") || preferredName.equals("User"));
+
         if (!isGeneratedPlaceholder && preferredName != null && !preferredName.isBlank()) {
             return preferredName;
         }

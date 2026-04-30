@@ -90,7 +90,8 @@ public class ChatController {
     @MessageMapping("/chat.send")
     public MessageResponse handleWebSocketMessage(@Valid @Payload SendMessageRequest request,
             SimpMessageHeaderAccessor headerAccessor) {
-        // Extract user ID from WebSocket session attributes (set by WebSocketJwtInterceptor)
+        // Extract user ID from WebSocket session attributes (set by
+        // WebSocketJwtInterceptor)
         Long senderId = (Long) headerAccessor.getSessionAttributes().get("userId");
         if (senderId == null) {
             throw new IllegalArgumentException("User ID not found in WebSocket session");

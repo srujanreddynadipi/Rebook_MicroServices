@@ -66,7 +66,7 @@ public class BookService {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    @CacheEvict(value = {"books:byId", "books:popular", "books:search"}, allEntries = true)
+    @CacheEvict(value = { "books:byId", "books:popular", "books:search" }, allEntries = true)
     public BookResponse createBook(CreateBookRequest request, List<MultipartFile> images, Long ownerId) {
         if (!request.isAtLeastOneModeEnabled()) {
             throw new IllegalArgumentException("At least one of donation or lending must be true");
@@ -98,7 +98,7 @@ public class BookService {
         return mapResponseWithOrderedImages(updated, null);
     }
 
-    @CacheEvict(value = {"books:byId", "books:popular", "books:search"}, allEntries = true)
+    @CacheEvict(value = { "books:byId", "books:popular", "books:search" }, allEntries = true)
     public BookResponse updateBook(Long bookId,
             UpdateBookRequest request,
             List<MultipartFile> newImages,
@@ -129,7 +129,7 @@ public class BookService {
         return mapResponseWithOrderedImages(updated, null);
     }
 
-    @CacheEvict(value = {"books:byId", "books:popular", "books:search"}, allEntries = true)
+    @CacheEvict(value = { "books:byId", "books:popular", "books:search" }, allEntries = true)
     public void deleteBook(Long bookId, Long requesterId, String requesterRole) {
         Book book = bookRepository.findWithImagesById(bookId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found"));
@@ -238,7 +238,7 @@ public class BookService {
         return responses;
     }
 
-    @CacheEvict(value = {"books:byId", "books:popular", "books:search"}, allEntries = true)
+    @CacheEvict(value = { "books:byId", "books:popular", "books:search" }, allEntries = true)
     public void updateBookStatus(Long bookId, BookStatus newStatus) {
         int updated = bookRepository.updateStatus(bookId, newStatus);
         if (updated == 0) {
@@ -488,8 +488,7 @@ public class BookService {
         Long donatedCount = bookRepository.countByOwnerIdAndIsDonation(userId, true);
         Long lentCount = bookRepository.countByOwnerIdAndIsLending(userId, true);
         return new UserStatsResponse(
-            donatedCount != null ? donatedCount.intValue() : 0,
-            lentCount != null ? lentCount.intValue() : 0
-        );
+                donatedCount != null ? donatedCount.intValue() : 0,
+                lentCount != null ? lentCount.intValue() : 0);
     }
 }

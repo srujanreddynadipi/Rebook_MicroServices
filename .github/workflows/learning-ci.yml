@@ -1,0 +1,86 @@
+name: Learning CI (Manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: learning-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  java-services:
+    name: Java Tests - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth-service
+          - book-service
+          - request-service
+          - chat-service
+          - notification-service
+          - api-gateway
+          - eureka-server
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build and test service
+        run: mvn -f ${{ matrix.service }}/pom.xml -B clean test
+
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm --prefix frontend ci
+
+      - name: Lint frontend
+        run: npm --prefix frontend run lint
+
+      - name: Build frontend
+        run: npm --prefix frontend run build
+
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs:
+      - java-services
+      - frontend
+    if: always()
+
+    steps:
+      - name: Print job summary
+        run: |
+          echo "java-services result: ${{ needs.java-services.result }}"
+          echo "frontend result: ${{ needs.frontend.result }}"
+
+          if [ "${{ needs.java-services.result }}" != "success" ] || [ "${{ needs.frontend.result }}" != "success" ]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi
+
+          echo "All jobs passed"
