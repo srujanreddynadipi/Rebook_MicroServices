@@ -216,19 +216,26 @@ pipeline {
               error('EC2_HOST not configured. Set via job parameter or Jenkins global environment.')
             }
 
-            echo "🚀 Deploying to EC2: ${ec2User}@${ec2Host}"
-            sh """
-              set -e
-              ssh -i "$EC2_KEY_FILE" \
-                -o StrictHostKeyChecking=no \
-                -o UserKnownHostsFile=/dev/null \
-                ${ec2User}@${ec2Host} 'bash -s' <<'EOF'
-              set -euo pipefail
-              export DOCKER_USER='${DOCKER_USERNAME}'
-              export REPO_DIR="\$HOME/rebook-system"
-              bash "\$REPO_DIR/scripts/deploy-minikube-from-dockerhub.sh"
+            echo "🚀 Deploying to EC2: ${ec2User}@${ec2Host} (copying workspace first)"
+
+            // Copy workspace to remote host via tar over SSH, then run the deploy script there.
+            // Use a single-quoted Groovy string so secrets (like $EC2_KEY_FILE) are not interpolated by Groovy.
+            withEnv(["EC2_USER_VAR=${ec2User}", "EC2_HOST_VAR=${ec2Host}"]) {
+              sh '''
+                set -euo pipefail
+                echo "Copying workspace to ${EC2_USER_VAR}@${EC2_HOST_VAR}..."
+                # Create remote dir and extract tar sent over the SSH channel
+                tar -C "${WORKSPACE}" -cf - . | ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} 'mkdir -p $HOME/rebook-system && tar -C $HOME/rebook-system -xf -'
+
+                echo "Running deploy script on remote host..."
+                ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} 'bash -s' <<'EOF'
+                set -euo pipefail
+                export DOCKER_USER="$DOCKER_USERNAME"
+                export REPO_DIR="$HOME/rebook-system"
+                bash "$REPO_DIR/scripts/deploy-minikube-from-dockerhub.sh"
 EOF
-            """
+              '''
+            }
           }
         }
       }
