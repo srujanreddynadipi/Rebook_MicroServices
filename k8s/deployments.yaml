@@ -65,7 +65,10 @@ spec:
             - name: SPRING_PROFILES_ACTIVE
               value: docker
             - name: APP_JWT_SECRET
-              value: change-me
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: APP_JWT_SECRET
           ports:
             - containerPort: 8080
 ---
@@ -103,9 +106,165 @@ spec:
             - name: SPRING_PROFILES_ACTIVE
               value: docker
             - name: APP_JWT_SECRET
-              value: change-me
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: APP_JWT_SECRET
           ports:
             - containerPort: 8081
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: book-service
+  namespace: rebook
+spec:
+  selector:
+    app: book-service
+  ports:
+    - port: 8082
+      targetPort: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: book-service
+  namespace: rebook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: book-service
+  template:
+    metadata:
+      labels:
+        app: book-service
+    spec:
+      containers:
+        - name: book-service
+          image: srujanreddynadipi/rebook-book-service:latest
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: docker
+          ports:
+            - containerPort: 8082
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: request-service
+  namespace: rebook
+spec:
+  selector:
+    app: request-service
+  ports:
+    - port: 8083
+      targetPort: 8083
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: request-service
+  namespace: rebook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: request-service
+  template:
+    metadata:
+      labels:
+        app: request-service
+    spec:
+      containers:
+        - name: request-service
+          image: srujanreddynadipi/rebook-request-service:latest
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: docker
+          ports:
+            - containerPort: 8083
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-service
+  namespace: rebook
+spec:
+  selector:
+    app: chat-service
+  ports:
+    - port: 8084
+      targetPort: 8084
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-service
+  namespace: rebook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chat-service
+  template:
+    metadata:
+      labels:
+        app: chat-service
+    spec:
+      containers:
+        - name: chat-service
+          image: srujanreddynadipi/rebook-chat-service:latest
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: docker
+            - name: APP_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: APP_JWT_SECRET
+          ports:
+            - containerPort: 8084
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: rebook
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - port: 8085
+      targetPort: 8085
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: rebook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: srujanreddynadipi/rebook-notification-service:latest
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: docker
+          ports:
+            - containerPort: 8085
 ---
 apiVersion: v1
 kind: Service

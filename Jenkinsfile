@@ -30,14 +30,15 @@ pipeline {
     stage('Build & Push Docker Images') {
       steps {
         script {
+          def dockerHub = (env.DOCKER_HUB?.trim()) ? env.DOCKER_HUB.trim() : 'srujanreddynadipi'
           def services = [
             'auth-service','book-service','request-service','chat-service','notification-service','api-gateway','eureka-server','frontend'
           ]
 
           docker.withRegistry('https://registry.hub.docker.com', DOCKER_CREDS_ID) {
             services.each { svc ->
-              def buildTag = "${DOCKER_HUB}/rebook-${svc}:${DOCKER_TAG}"
-              def latestTag = "${DOCKER_HUB}/rebook-${svc}:latest"
+              def buildTag = "${dockerHub}/rebook-${svc}:${DOCKER_TAG}"
+              def latestTag = "${dockerHub}/rebook-${svc}:latest"
               sh "docker build -t ${buildTag} -t ${latestTag} ${svc}"
               sh "docker push ${buildTag}"
               sh "docker push ${latestTag}"
