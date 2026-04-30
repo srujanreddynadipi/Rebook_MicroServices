@@ -17,24 +17,31 @@ pipeline {
     stage('Build Java Services') {
       parallel {
         stage('auth') {
+          agent { docker { image 'maven:3.8.8-openjdk-17' args '-v /root/.m2:/root/.m2' } }
           steps { sh 'mvn -f auth-service/pom.xml -B -DskipTests package' }
         }
         stage('book') {
+          agent { docker { image 'maven:3.8.8-openjdk-17' args '-v /root/.m2:/root/.m2' } }
           steps { sh 'mvn -f book-service/pom.xml -B -DskipTests package' }
         }
         stage('request') {
+          agent { docker { image 'maven:3.8.8-openjdk-17' args '-v /root/.m2:/root/.m2' } }
           steps { sh 'mvn -f request-service/pom.xml -B -DskipTests package' }
         }
         stage('chat') {
+          agent { docker { image 'maven:3.8.8-openjdk-17' args '-v /root/.m2:/root/.m2' } }
           steps { sh 'mvn -f chat-service/pom.xml -B -DskipTests package' }
         }
         stage('notification') {
+          agent { docker { image 'maven:3.8.8-openjdk-17' args '-v /root/.m2:/root/.m2' } }
           steps { sh 'mvn -f notification-service/pom.xml -B -DskipTests package' }
         }
         stage('apigw') {
+          agent { docker { image 'maven:3.8.8-openjdk-17' args '-v /root/.m2:/root/.m2' } }
           steps { sh 'mvn -f api-gateway/pom.xml -B -DskipTests package' }
         }
         stage('eureka') {
+          agent { docker { image 'maven:3.8.8-openjdk-17' args '-v /root/.m2:/root/.m2' } }
           steps { sh 'mvn -f eureka-server/pom.xml -B -DskipTests package' }
         }
       }
