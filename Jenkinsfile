@@ -36,9 +36,11 @@ pipeline {
 
           docker.withRegistry('https://registry.hub.docker.com', DOCKER_CREDS_ID) {
             services.each { svc ->
-              def img = "${DOCKER_HUB}/rebook-${svc}:${DOCKER_TAG}"
-              sh "docker build -t ${img} ${svc}"
-              sh "docker push ${img}"
+              def buildTag = "${DOCKER_HUB}/rebook-${svc}:${DOCKER_TAG}"
+              def latestTag = "${DOCKER_HUB}/rebook-${svc}:latest"
+              sh "docker build -t ${buildTag} -t ${latestTag} ${svc}"
+              sh "docker push ${buildTag}"
+              sh "docker push ${latestTag}"
             }
           }
         }
@@ -50,6 +52,7 @@ pipeline {
         script {
           // Assumes Jenkins has kubectl access (minikube tunnel or kubeconfig provided)
           sh 'kubectl apply -f k8s/namespace.yaml'
+          sh 'kubectl apply -f k8s/mysql-secret.yaml'
           sh 'kubectl apply -f k8s/mysql-pvc.yaml'
           sh 'kubectl apply -f k8s/mysql-deployment.yaml'
           sh 'kubectl apply -f k8s/deployments.yaml'
