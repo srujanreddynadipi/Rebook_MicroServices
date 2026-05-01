@@ -221,7 +221,7 @@ pipeline {
 
             // Copy workspace to remote host via tar over SSH, then run the deploy script there.
             // Use a single-quoted Groovy string so secrets (like $EC2_KEY_FILE) are not interpolated by Groovy.
-            withEnv(["EC2_USER_VAR=${ec2User}", "EC2_HOST_VAR=${ec2Host}", "DOCKER_USER_VAR=${DOCKER_USERNAME}"]) {
+            withEnv(["EC2_USER_VAR=${ec2User}", "EC2_HOST_VAR=${ec2Host}", "DOCKER_USER_VAR=${DOCKER_USERNAME}", "APP_JWT_VAR=${APP_JWT_SECRET}"]) {
               sh '''
                 set -euo pipefail
                 echo "Copying workspace to ${EC2_USER_VAR}@${EC2_HOST_VAR}..."
@@ -229,10 +229,8 @@ pipeline {
                 tar -C "${WORKSPACE}" -cf - . | ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} 'mkdir -p $HOME/rebook-system && tar -C $HOME/rebook-system -xf -'
 
                 echo "Running deploy script on remote host..."
-                  ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} "APP_JWT_SECRET='${APP_JWT_SECRET}' DOCKER_USER='${DOCKER_USERNAME}' bash -s" <<'SSH_EOF'
-  cd "$HOME/rebook-system"
-  bash scripts/deploy-minikube-from-dockerhub.sh
-  SSH_EOF
+                ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} \
+                  "export APP_JWT_SECRET='${APP_JWT_VAR}' DOCKER_USER='${DOCKER_USER_VAR}' && cd \$HOME/rebook-system && bash scripts/deploy-minikube-from-dockerhub.sh"
               '''
             }
           }
