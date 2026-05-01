@@ -230,7 +230,7 @@ pipeline {
 
                 echo "Running deploy script on remote host..."
                 ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} \
-                  "export APP_JWT_SECRET='${APP_JWT_VAR}' DOCKER_USER='${DOCKER_USER_VAR}' && cd \$HOME/rebook-system && bash scripts/deploy-minikube-from-dockerhub.sh"
+                  "export APP_JWT_SECRET='${APP_JWT_VAR}' DOCKER_USER='${DOCKER_USER_VAR}' && cd \$HOME/rebook-system/Rebook_MicroServices && bash scripts/deploy-minikube-from-dockerhub.sh"
               '''
             }
           }
