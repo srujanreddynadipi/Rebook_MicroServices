@@ -245,7 +245,7 @@ pipeline {
     success {
       echo "✅ Pipeline completed successfully! ⏱️  END: ${new Date()}"
       echo "💾 Maven cache (.m2/repository) persisted for next builds"
-      echo "🐳 Docker layer cache enabled on Docker Hub registry"
+      echo "🐳 Docker layer cache enabled on Docker Hub registry"   
       echo "🚀 Next builds will be 60-70% faster!"
     }
     failure {   
