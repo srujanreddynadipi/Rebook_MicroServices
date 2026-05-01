@@ -228,7 +228,7 @@ pipeline {
                 tar -C "${WORKSPACE}" -cf - . | ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} 'mkdir -p $HOME/rebook-system && tar -C $HOME/rebook-system -xf -'
 
                 echo "Running deploy script on remote host..."
-                ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} 'bash -s' <<'EOF'
+                ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} bash -s <<EOF
                 set -euo pipefail
                 export DOCKER_USER="$DOCKER_USERNAME"
                 export REPO_DIR="$HOME/rebook-system"
