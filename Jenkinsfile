@@ -207,7 +207,8 @@ pipeline {
         script {
           withCredentials([
             usernamePassword(credentialsId: DOCKER_CREDS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD'),
-            sshUserPrivateKey(credentialsId: EC2_SSH_CRED_ID, keyFileVariable: 'EC2_KEY_FILE', usernameVariable: 'EC2_USER_FROM_CRED')
+            sshUserPrivateKey(credentialsId: EC2_SSH_CRED_ID, keyFileVariable: 'EC2_KEY_FILE', usernameVariable: 'EC2_USER_FROM_CRED'),
+            string(credentialsId: 'app-jwt-secret', variable: 'APP_JWT_SECRET')
           ]) {
             def ec2Host = env.EC2_HOST_FINAL?.trim()
             def ec2User = env.EC2_USER_FINAL?.trim()
@@ -228,13 +229,10 @@ pipeline {
                 tar -C "${WORKSPACE}" -cf - . | ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} 'mkdir -p $HOME/rebook-system && tar -C $HOME/rebook-system -xf -'
 
                 echo "Running deploy script on remote host..."
-                ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} bash -c "
-                  set -eo pipefail
-                  export DOCKER_USER='${DOCKER_USER_VAR}'
-                  export REPO_DIR=\\\$HOME/rebook-system
-                  cd \\\$REPO_DIR
-                  bash scripts/deploy-minikube-from-dockerhub.sh
-                "
+                  ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} "APP_JWT_SECRET='${APP_JWT_SECRET}' DOCKER_USER='${DOCKER_USERNAME}' bash -s" <<'SSH_EOF'
+  cd "$HOME/rebook-system"
+  bash scripts/deploy-minikube-from-dockerhub.sh
+  SSH_EOF
               '''
             }
           }
