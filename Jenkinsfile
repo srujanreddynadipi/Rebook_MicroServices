@@ -248,7 +248,7 @@ pipeline {
       echo "🐳 Docker layer cache enabled on Docker Hub registry"
       echo "🚀 Next builds will be 60-70% faster!"
     }
-    failure {
+    failure {   
       echo "❌ Pipeline failed. ⏱️  Check logs and address errors."
     }
   }
