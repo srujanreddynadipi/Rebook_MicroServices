@@ -229,10 +229,14 @@ pipeline {
 
                 echo "Running deploy script on remote host..."
                 ssh -i "$EC2_KEY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${EC2_USER_VAR}@${EC2_HOST_VAR} bash -s <<EOF
-                set -euo pipefail
-                export DOCKER_USER="$DOCKER_USERNAME"
-                export REPO_DIR="$HOME/rebook-system"
-                bash "$REPO_DIR/scripts/deploy-minikube-from-dockerhub.sh"
+set -eo pipefail
+DOCKER_USER="${DOCKER_USERNAME}"
+REPO_DIR="\$HOME/rebook-system"
+
+export DOCKER_USER
+export REPO_DIR
+
+bash "\$REPO_DIR/scripts/deploy-minikube-from-dockerhub.sh"
 EOF
               '''
             }
