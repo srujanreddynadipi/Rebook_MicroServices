@@ -56,7 +56,7 @@ public class BookService {
 
     public BookService(BookRepository bookRepository,
             BookMapper bookMapper,
-            S3Service s3Service,
+            S3Service s3Service, 
             RedisTemplate<String, Object> redisTemplate,
             KafkaTemplate<String, Object> kafkaTemplate) {
         this.bookRepository = bookRepository;

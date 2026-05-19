@@ -43,7 +43,7 @@ public class BookController {
         this.bookService = bookService;
         this.studyMaterialAudioService = studyMaterialAudioService;
     }
-
+ 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<BookResponse> createBook(
             @Valid @RequestPart("bookRequest") CreateBookRequest bookRequest,

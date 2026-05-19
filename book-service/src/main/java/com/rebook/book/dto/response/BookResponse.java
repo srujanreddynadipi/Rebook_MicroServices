@@ -10,7 +10,7 @@ import com.rebook.book.entity.BookCondition;
 import com.rebook.book.entity.BookStatus;
 
 import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.Builder; 
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

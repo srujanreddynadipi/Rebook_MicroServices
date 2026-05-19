@@ -1,0 +1,3186 @@
+cd /home/claude && cat > answers.js << 'ENDOFFILE'
+const {
+  Document, Packer, Paragraph, TextRun,
+  AlignmentType, BorderStyle, LevelFormat, ShadingType, WidthType, Table, TableRow, TableCell
+} = require('docx');
+const fs = require('fs');
+
+const qa_data = [
+  {
+    section: "SECTION 1: Java Core & OOP (Q1–Q12)",
+    qa: [
+      {
+        q: "Explain the four pillars of OOP with real examples from your projects. How did you apply encapsulation in your microservices?",
+        a: `OOP has four pillars:
+
+1. Encapsulation – Hiding internal data and exposing only what's needed. In my Book Sharing Platform, each microservice (Auth, Book, Request) wraps its own data and logic. For example, my BookService class keeps the book repository private and exposes only methods like getBookById() or searchBooks(). Nobody outside the class touches the database directly.
+
+2. Inheritance – Child classes inherit from parent. In Spring Boot, my service classes extend base service behavior. For example, a BaseEntity with createdAt and updatedAt fields is inherited by all my JPA entities like BookEntity and UserEntity.
+
+3. Polymorphism – Same method, different behavior. I used this with notification types — EmailNotification and InAppNotification both implement a Notification interface but send messages differently. Kafka calls the same send() method on whichever implementation is injected.
+
+4. Abstraction – Hiding complexity. Spring Data JPA is the best example — I just call bookRepository.findAll() without worrying about SQL queries underneath.
+
+Simple answer for recruiter: "OOP is about organizing code in a clean, reusable way. I used encapsulation to keep each microservice independent, and abstraction through Spring JPA to avoid writing raw SQL."`
+      },
+      {
+        q: "What is the difference between an abstract class and an interface in Java? When would you use one over the other in Spring Boot services?",
+        a: `Simple answer:
+- Interface = a contract. It defines WHAT a class must do, but not HOW.
+- Abstract class = a partial blueprint. It can have both complete and incomplete methods.
+
+Key differences:
+- A class can implement multiple interfaces, but can only extend ONE abstract class.
+- Interfaces support default methods (since Java 8), but abstract classes can have constructors and instance variables.
+
+When I use each:
+- Interface: I created a NotificationService interface with a send() method. Then I wrote EmailNotificationService and InAppNotificationService as separate implementations. This allowed me to swap implementations without changing other code.
+- Abstract class: I used it for shared logic — for example, a base validator class with common validation methods that both BookValidator and UserValidator extend.
+
+Simple rule: Use interface when you want to define a contract across unrelated classes. Use abstract class when you have shared code that multiple related classes will reuse.`
+      },
+      {
+        q: "Explain Java memory management — heap, stack, PermGen/Metaspace. Have you faced OutOfMemoryErrors? How did you debug them?",
+        a: `Java memory has two main areas:
+
+- Stack: Stores method calls and local variables. Each thread has its own stack. When a method finishes, its stack frame is removed automatically.
+- Heap: Stores all objects created with 'new'. Shared across threads. Garbage Collector (GC) cleans up unused objects here.
+- Metaspace (replaced PermGen in Java 8+): Stores class metadata — class names, method info, bytecode.
+
+OutOfMemoryError types:
+- Java heap space → Too many objects, GC can't free memory.
+- PermGen/Metaspace → Too many class definitions loaded (common in apps that dynamically generate classes).
+
+In my projects: When testing my 7-service Kubernetes deployment locally, one service kept crashing. I found it was loading book cover images into memory instead of streaming them to AWS S3. I fixed it by using S3's multipart upload with streaming, which reduced memory usage by 80%.
+
+Debugging approach:
+1. Check logs for the exact OOM error type.
+2. Use Java VisualVM or jmap to take a heap dump.
+3. Analyze the dump to find which objects are consuming most memory.
+4. Fix the code — usually a memory leak or inefficient data loading.`
+      },
+      {
+        q: "What are generics in Java? Give a real-world scenario where you used them.",
+        a: `Generics allow you to write classes and methods that work with any data type while keeping type safety at compile time.
+
+Without generics:
+  List list = new ArrayList();  // Can store anything — risky!
+  String s = (String) list.get(0);  // Needs cast, can fail at runtime
+
+With generics:
+  List<String> list = new ArrayList<>();  // Only Strings allowed
+  String s = list.get(0);  // No cast needed, safe at compile time
+
+Real example from my projects:
+In my Student & Placement Management System, I created a generic ApiResponse<T> wrapper class:
+
+  public class ApiResponse<T> {
+      private boolean success;
+      private String message;
+      private T data;
+  }
+
+This single class works for all API responses:
+  ApiResponse<Student> → returns student data
+  ApiResponse<List<Placement>> → returns placement list
+  ApiResponse<String> → returns a message
+
+I reused this across all 27 REST APIs without writing separate response classes for each. This is clean, type-safe, and reduces code duplication.`
+      },
+      {
+        q: "Explain the difference between == and .equals() and hashCode(). Why is hashCode() important when using HashMap?",
+        a: `== checks if two variables point to the SAME object in memory (reference comparison).
+.equals() checks if two objects have the SAME VALUE (logical comparison).
+
+Example:
+  String a = new String("Srujan");
+  String b = new String("Srujan");
+  a == b        → false (different objects in memory)
+  a.equals(b)   → true (same content)
+
+hashCode():
+- Every Java object has a hashCode — an integer that represents the object.
+- HashMap uses hashCode to decide which "bucket" to store an object in.
+- If two objects are equal (.equals() returns true), they MUST have the same hashCode.
+- If you override equals() without overriding hashCode(), HashMap breaks — it can't find your object!
+
+Real example:
+In my Book Sharing Platform, I had a Book entity. When I used books as HashMap keys, I overrode both equals() (compare by bookId) and hashCode() (generate from bookId). Without this, two Book objects with the same ID would land in different buckets and the map would behave incorrectly.
+
+Simple rule: Always override hashCode() whenever you override equals(). They are a pair.`
+      },
+      {
+        q: "What is the Java Collections Framework? Compare ArrayList, LinkedList, HashSet, TreeSet, HashMap, and LinkedHashMap.",
+        a: `The Collections Framework is Java's library of ready-to-use data structures.
+
+ArrayList:
+- Backed by a dynamic array. Fast random access (O(1) get by index). Slow insertion/deletion in middle (O(n) shifting).
+- I used it to return lists of books or students from REST APIs.
+
+LinkedList:
+- Backed by doubly-linked nodes. Fast insert/delete at ends (O(1)). Slow random access (O(n)).
+- Useful as a queue or deque, but I mostly use ArrayList for API data.
+
+HashSet:
+- Stores unique elements, no order, backed by HashMap. O(1) add/contains.
+- I used it to store unique book tags/genres without duplicates.
+
+TreeSet:
+- Stores unique elements in sorted order. O(log n) operations.
+- Useful when you need sorted unique data, like sorted student ranks.
+
+HashMap:
+- Key-value pairs, no order, O(1) get/put. Keys must be unique.
+- I used HashMap extensively — caching book metadata, storing user sessions.
+
+LinkedHashMap:
+- Same as HashMap but maintains insertion order.
+- I used it when I needed to return API response fields in a predictable order.
+
+Simple tip for recruiter: "Choose based on what you need — fast access? ArrayList. Unique values? HashSet. Key-value? HashMap. Sorted? TreeSet."`
+      },
+      {
+        q: "What are Java Streams and lambda expressions? Write a stream pipeline to filter, sort, and collect a list of books by author.",
+        a: `Lambda expressions are short, anonymous functions introduced in Java 8. Instead of writing a full method, you write inline logic.
+  // Old way
+  Comparator<Book> comp = new Comparator<Book>() {
+      public int compare(Book a, Book b) { return a.getTitle().compareTo(b.getTitle()); }
+  };
+  // Lambda way
+  Comparator<Book> comp = (a, b) -> a.getTitle().compareTo(b.getTitle());
+
+Java Streams let you process collections in a clean, readable pipeline — filter, transform, sort, collect — without writing loops.
+
+Real example from my Book Sharing Platform:
+  List<Book> availableBooksByAuthor = books.stream()
+      .filter(book -> book.isAvailable())            // Only available books
+      .filter(book -> book.getAuthor().equals(author)) // By specific author
+      .sorted(Comparator.comparing(Book::getTitle))  // Alphabetical order
+      .collect(Collectors.toList());                 // Collect result
+
+This replaces 10+ lines of for-loops with one readable pipeline. I used streams heavily in my service layer to process book lists, student records, and notification data before returning API responses.
+
+Key stream operations:
+- filter() → keep matching elements
+- map() → transform each element
+- sorted() → order elements
+- collect() → gather results into a list, set, or map
+- forEach() → perform action on each element`
+      },
+      {
+        q: "Explain Java's multithreading model — Thread, Runnable, ExecutorService, and CompletableFuture. Have you used async processing in your projects?",
+        a: `Java supports running multiple tasks at the same time through threads.
+
+Thread: The basic unit. You extend Thread or implement Runnable. But creating raw threads is expensive.
+
+Runnable: Just a task definition (run() method). Pass it to a Thread or ExecutorService.
+
+ExecutorService: A thread pool manager. Instead of creating a new thread for each task, it reuses a pool of threads. Much more efficient.
+  ExecutorService pool = Executors.newFixedThreadPool(10);
+  pool.submit(() -> sendNotification(userId));
+
+CompletableFuture: For async, non-blocking operations with a clean API.
+  CompletableFuture.supplyAsync(() -> bookRepository.findAll())
+      .thenApply(books -> filterAvailable(books))
+      .thenAccept(result -> cache.put("books", result));
+
+Real usage in my projects:
+In my Book Sharing Platform, when a book request is approved, I needed to:
+1. Update the book status in DB
+2. Send a Kafka notification event
+3. Update Redis cache
+
+Instead of doing these sequentially (slow), I used CompletableFuture to run steps 2 and 3 in parallel after step 1 completes. This reduced response time significantly.
+
+Also, Kafka consumers in my Notification service run on separate threads, processing notification events asynchronously so the main request thread is never blocked.`
+      },
+      {
+        q: "What is the difference between checked and unchecked exceptions? How do you design a global exception handler in Spring Boot?",
+        a: `Checked exceptions: Must be handled at compile time (try-catch or throws). Example: IOException, SQLException.
+Unchecked exceptions: Runtime exceptions, don't need to be declared. Example: NullPointerException, IllegalArgumentException.
+
+In Spring Boot, I avoid throwing raw exceptions from controllers. Instead I use a global exception handler with @ControllerAdvice + @ExceptionHandler.
+
+My approach in the Book Sharing Platform:
+
+Step 1: Create custom exceptions:
+  public class BookNotFoundException extends RuntimeException {
+      public BookNotFoundException(Long id) {
+          super("Book not found with id: " + id);
+      }
+  }
+
+Step 2: Create global handler:
+  @ControllerAdvice
+  public class GlobalExceptionHandler {
+      @ExceptionHandler(BookNotFoundException.class)
+      public ResponseEntity<ApiResponse<String>> handleBookNotFound(BookNotFoundException ex) {
+          return ResponseEntity.status(404)
+              .body(new ApiResponse<>(false, ex.getMessage(), null));
+      }
+      @ExceptionHandler(Exception.class)
+      public ResponseEntity<ApiResponse<String>> handleGeneral(Exception ex) {
+          return ResponseEntity.status(500)
+              .body(new ApiResponse<>(false, "Internal server error", null));
+      }
+  }
+
+This means every API in all 7 services returns consistent error responses. The frontend React app always receives the same JSON structure — success: false, message: "...", data: null — making error handling on the frontend simple.`
+      },
+      {
+        q: "Explain the Singleton, Factory, Builder, and Strategy design patterns with code-level examples from your projects.",
+        a: `Design patterns are proven solutions to common coding problems.
+
+1. Singleton — Only one instance of a class exists in the entire app.
+Spring beans are Singleton by default. My RedisConfig bean is a Singleton — only one Redis connection pool exists, shared across all services.
+
+2. Factory — Create objects without specifying exact class.
+I used this for notification creation. Based on notification type (EMAIL, IN_APP, PUSH), a NotificationFactory returns the right implementation:
+  NotificationService service = NotificationFactory.getService("IN_APP");
+  service.send(message);
+
+3. Builder — Build complex objects step by step.
+I used Lombok's @Builder on my DTOs:
+  BookRequest request = BookRequest.builder()
+      .bookId(1L).requesterId(userId).message("Please lend me this book").build();
+Much cleaner than a constructor with 8 parameters.
+
+4. Strategy — Swap algorithms/behaviors at runtime.
+In my platform, I have multiple search strategies:
+- LocationBasedSearch (uses geolocation)
+- TitleBasedSearch (searches by book title)
+- AuthorBasedSearch
+The SearchContext class holds a SearchStrategy reference. At runtime, the API picks the right strategy based on the query parameter. No if-else chains — just plug in a strategy.
+
+Simple answer for recruiter: "I use Builder for clean object creation, Singleton for shared resources, Factory to create the right object type, and Strategy to swap behaviors without changing existing code."`
+      },
+      {
+        q: "What is Java 17's record type? Where would you use it instead of a regular POJO?",
+        a: `A record is a special Java class (introduced in Java 16, finalized in Java 17) designed for immutable data carriers. It auto-generates:
+- Constructor
+- Getters (by field name, not getXxx())
+- equals(), hashCode(), toString()
+
+Regular POJO (verbose):
+  public class BookDTO {
+      private Long id;
+      private String title;
+      // constructor, getters, setters, equals, hashCode, toString... 40+ lines
+  }
+
+Record (clean):
+  public record BookDTO(Long id, String title, String author) {}
+  // That's it! All methods auto-generated.
+
+When to use records:
+- DTOs (Data Transfer Objects) — objects that just carry data between layers
+- API response/request objects
+- Value objects that should be immutable
+
+When NOT to use records:
+- JPA entities — they need mutable state, setters, and a no-arg constructor (records are immutable)
+- Objects with complex business logic
+
+In my projects: I started using records for API request/response DTOs like BookResponseDTO and NotificationDTO. It cut boilerplate code dramatically and made the codebase cleaner. For JPA entities, I still use regular classes with Lombok @Data.`
+      },
+      {
+        q: "How does the Java garbage collector work? What are the different GC algorithms and when would you tune GC settings?",
+        a: `The Garbage Collector (GC) automatically frees memory by removing objects that are no longer referenced by your program. You don't need to manually delete objects like in C/C++.
+
+How it works:
+1. GC identifies "unreachable" objects — objects no longer referenced by any variable.
+2. It frees the heap memory those objects occupied.
+3. It runs automatically, usually when heap memory gets low.
+
+GC generations:
+- Young Generation: New objects are created here. GC runs frequently (Minor GC). Short-lived objects die here.
+- Old Generation: Objects that survive multiple GCs are promoted here. GC runs less often (Major/Full GC) but takes longer.
+
+Common GC algorithms:
+- Serial GC: Single-threaded. Good for small apps.
+- Parallel GC: Multiple threads. Good for batch processing.
+- G1 GC (default since Java 9): Balances throughput and latency. Good for most applications.
+- ZGC / Shenandoah: Ultra-low pause times (< 1ms). Good for high-traffic production services.
+
+When I tuned GC in my projects:
+In my Kubernetes deployment, my Book service was showing occasional slow responses. I found Full GC was pausing the service for 500ms+. I switched from G1GC to ZGC by adding:
+  -XX:+UseZGC -Xms512m -Xmx1g
+This reduced pause times to near zero and improved API response consistency.
+
+Simple answer for recruiter: "GC frees unused memory automatically. For production microservices, I use ZGC for low latency or G1GC as the default. I monitor GC via Prometheus/Grafana and tune heap size based on actual usage."`
+      }
+    ]
+  },
+  {
+    section: "SECTION 2: Spring Boot & Backend (Q13–Q28)",
+    qa: [
+      {
+        q: "Walk me through the Spring Boot auto-configuration mechanism. How does @SpringBootApplication work internally?",
+        a: `@SpringBootApplication is a convenience annotation that combines three annotations:
+1. @Configuration – Marks the class as a Spring configuration class (bean definitions).
+2. @ComponentScan – Tells Spring to scan the current package and sub-packages for components (@Service, @Repository, @Controller, etc.).
+3. @EnableAutoConfiguration – This is the magic. It reads META-INF/spring.factories from all JAR files on the classpath and auto-configures beans based on what it finds.
+
+How auto-configuration works:
+- If spring-boot-starter-data-jpa is in your pom.xml, Spring sees Hibernate on the classpath and auto-configures a DataSource, EntityManagerFactory, and TransactionManager.
+- If spring-boot-starter-web is present, it auto-configures an embedded Tomcat server.
+- Each auto-configuration class uses @ConditionalOnClass, @ConditionalOnMissingBean — meaning it only activates if certain conditions are met.
+
+Example: DataSourceAutoConfiguration activates only if a DataSource class is on the classpath AND no custom DataSource bean is defined by the developer.
+
+In my projects: I never manually configure Tomcat or JPA — Spring Boot handles it from my application.properties settings like:
+  spring.datasource.url=jdbc:mysql://localhost:3306/bookdb
+  spring.jpa.hibernate.ddl-auto=update
+Spring auto-configures everything from these properties.`
+      },
+      {
+        q: "Explain the Spring Bean lifecycle — instantiation, dependency injection, initialization, and destruction.",
+        a: `A Spring Bean goes through these lifecycle stages:
+
+1. Instantiation: Spring reads @Component/@Service/@Repository and creates the object using the constructor.
+
+2. Dependency Injection: Spring injects dependencies (other beans) via constructor, setter, or field injection (@Autowired).
+
+3. @PostConstruct (Initialization): A method annotated with @PostConstruct runs after injection is complete. I use this to warm up my Redis cache when the Book service starts — loading frequently accessed books into cache at startup so the first requests are fast.
+  @PostConstruct
+  public void initCache() {
+      List<Book> popular = bookRepository.findTop10ByRating();
+      popular.forEach(b -> redisTemplate.opsForValue().set("book:" + b.getId(), b));
+  }
+
+4. Ready to use: The bean serves requests normally.
+
+5. @PreDestroy (Destruction): Runs before the bean is destroyed (app shutdown). I use this to gracefully flush any pending Kafka messages and close connections.
+
+Why this matters:
+In Kubernetes, when a pod is terminated (rolling update), Spring's @PreDestroy lets me close DB connections cleanly instead of dropping active requests. This is part of the graceful shutdown I configured in my production deployment.`
+      },
+      {
+        q: "What is Spring Dependency Injection? Compare constructor injection vs. field injection vs. setter injection.",
+        a: `Dependency Injection (DI) means Spring creates and manages your objects' dependencies — you don't use 'new'. You just declare what you need, and Spring provides it.
+
+Three types:
+
+1. Field Injection (common but not recommended):
+  @Autowired
+  private BookRepository bookRepository;
+  - Simple to write but hard to test (can't inject mocks without Spring context).
+  - Hides dependencies — not clear what a class needs.
+
+2. Constructor Injection (recommended — what I use):
+  private final BookRepository bookRepository;
+  public BookService(BookRepository bookRepository) {
+      this.bookRepository = bookRepository;
+  }
+  - Dependencies are explicit and required.
+  - Easy to unit test — just pass mocks in the constructor.
+  - Supports immutability (final fields).
+  - If a dependency is missing, app fails at startup — not at runtime.
+
+3. Setter Injection (for optional dependencies):
+  @Autowired
+  public void setBookRepository(BookRepository repo) { this.bookRepository = repo; }
+  - Used for optional dependencies that have defaults.
+
+My approach: I always use constructor injection in my Spring Boot services. With Lombok's @RequiredArgsConstructor, Spring auto-generates the constructor from final fields — clean, testable, and production-grade.`
+      },
+      {
+        q: "How does Spring Data JPA work? Explain the difference between CrudRepository, JpaRepository, and PagingAndSortingRepository.",
+        a: `Spring Data JPA eliminates boilerplate. Instead of writing SQL queries, you define a repository interface and Spring auto-implements it.
+
+  public interface BookRepository extends JpaRepository<Book, Long> {
+      List<Book> findByAuthor(String author);  // Spring generates the SQL automatically!
+      List<Book> findByAvailableTrueAndLocation(String location);
+  }
+
+The repository hierarchy:
+- CrudRepository: Basic CRUD — save(), findById(), findAll(), delete(). 5 methods. Use when you only need basic operations.
+- PagingAndSortingRepository: Extends CrudRepository, adds findAll(Pageable) and findAll(Sort). Use when you need pagination.
+- JpaRepository: Extends PagingAndSortingRepository, adds JPA-specific methods like flush(), saveAndFlush(), deleteInBatch(). This is what I use in all my projects.
+
+Why JpaRepository: It includes everything from the other two plus JPA-specific optimizations. In my Student & Placement Management System with 27 REST APIs, using JpaRepository saved me from writing hundreds of SQL queries. Spring generates them from method names.
+
+Custom queries when needed:
+  @Query("SELECT b FROM Book b WHERE b.location = :loc AND b.available = true")
+  List<Book> findAvailableNearLocation(@Param("loc") String location);`
+      },
+      {
+        q: "What is the N+1 problem in JPA? How did you solve it in your Student & Placement Management System?",
+        a: `N+1 problem: When loading 1 list of entities triggers N additional queries to load their related entities — one per item.
+
+Example (bad):
+  List<Student> students = studentRepository.findAll();  // 1 query
+  for (Student s : students) {
+      s.getPlacements();  // 1 query per student! → 100 students = 101 queries
+  }
+
+This is a massive performance killer. In my Student & Placement system with hundreds of students, this was causing slow API responses.
+
+Solutions I used:
+
+1. EAGER loading with JOIN FETCH (for small, always-needed relationships):
+  @Query("SELECT s FROM Student s JOIN FETCH s.placements")
+  List<Student> findAllWithPlacements();
+  This loads students AND their placements in a SINGLE query.
+
+2. @EntityGraph (cleaner Spring Data approach):
+  @EntityGraph(attributePaths = {"placements", "certificates"})
+  List<Student> findAll();
+
+3. DTO projections (for read-only APIs — most efficient):
+  Instead of loading full entities, I select only needed fields:
+  @Query("SELECT new com.app.dto.StudentSummary(s.id, s.name, COUNT(p)) FROM Student s LEFT JOIN s.placements p GROUP BY s.id")
+  List<StudentSummary> findStudentSummaries();
+
+Result: After fixing N+1 in my placement module, the API response time dropped from ~2 seconds to under 150ms for 200 students.`
+      },
+      {
+        q: "Explain Spring Boot's transaction management — @Transactional, propagation levels, and isolation levels.",
+        a: `A transaction is a group of DB operations that either ALL succeed or ALL fail together (atomicity).
+
+@Transactional: Add this to a service method, and Spring wraps it in a DB transaction. If any exception occurs, it rolls back all changes.
+  @Transactional
+  public void approveBookRequest(Long requestId) {
+      bookRequest.setStatus(APPROVED);     // DB operation 1
+      book.setAvailable(false);            // DB operation 2
+      notificationService.create(event);  // DB operation 3
+      // If anything fails above, ALL 3 changes are rolled back
+  }
+
+Propagation levels (most important ones):
+- REQUIRED (default): Join existing transaction if one exists; otherwise create new. I use this for most service methods.
+- REQUIRES_NEW: Always create a new, independent transaction. I use this for audit logging — even if the main transaction fails, the audit log should be saved.
+- NESTED: Creates a savepoint within the current transaction. Can partially rollback.
+
+Isolation levels (handle concurrent access):
+- READ_COMMITTED (default in MySQL): Can't read uncommitted data. Used for most of my APIs.
+- SERIALIZABLE: Strictest. Transactions queue up. I use this only for book availability updates to prevent two users from claiming the same book simultaneously.
+
+Real example: In my Book Request service, I use @Transactional(isolation = Isolation.SERIALIZABLE) when marking a book as taken, preventing race conditions.`
+      },
+      {
+        q: "How does Spring Security work internally? Explain the filter chain and how you implemented JWT-based auth in your Book Sharing Platform.",
+        a: `Spring Security works as a chain of filters that intercept every HTTP request before it reaches your controller.
+
+The filter chain flow:
+  HTTP Request → [Filter 1] → [Filter 2] → [JwtAuthFilter] → [AuthenticationManager] → Controller
+
+My JWT implementation (step by step):
+
+1. Login: User sends POST /auth/login with credentials.
+   - AuthController passes credentials to AuthenticationManager.
+   - Spring Security verifies username/password against DB.
+   - On success, I generate a JWT token (signed with secret key, contains userId and roles, expires in 24h).
+   - Return token to user.
+
+2. Every subsequent request:
+   - My JwtAuthFilter (extends OncePerRequestFilter) runs before every request.
+   - It reads the Authorization: Bearer <token> header.
+   - Validates the token signature and expiry.
+   - Extracts userId and roles from token claims.
+   - Sets the authentication in SecurityContextHolder.
+   - Spring Security allows or denies access based on roles.
+
+3. Role-based access:
+  @PreAuthorize("hasRole('ADMIN')")
+  public ResponseEntity<?> deleteBook() { ... }
+
+In my API Gateway (Spring Cloud Gateway), I validate the JWT at the gateway level before forwarding requests to downstream services — so individual services don't need to re-validate.`
+      },
+      {
+        q: "What is OAuth2? Explain the Authorization Code flow. Did you use OAuth2 in your projects?",
+        a: `OAuth2 is an authorization framework that lets users grant third-party apps access to their data without sharing passwords.
+
+Example: "Login with Google" on a website — you authorize Google to share your email, but you never give your Google password to that website.
+
+Authorization Code Flow (most secure, used for web apps):
+1. User clicks "Login with Google" on your app.
+2. App redirects user to Google's auth server with client_id and redirect_uri.
+3. User logs in on Google and approves permissions.
+4. Google redirects back to your app with an authorization code.
+5. Your app exchanges this code (+ client_secret) for an access token (server-to-server — never exposed to browser).
+6. App uses access token to call Google APIs on user's behalf.
+
+The code is short-lived (seconds) and exchanged server-side — this protects against token theft.
+
+My projects:
+In my Book Sharing Platform, I implemented JWT-based authentication (my own auth system). I also configured Spring Security's OAuth2 resource server to accept Google OAuth tokens as an alternative login method — allowing users to sign in with Google. This used @EnableWebSecurity with .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(decoder))).
+
+I studied OAuth2 Client Credentials flow for service-to-service authentication (no user involved), which is relevant for my microservices communicating internally.`
+      },
+      {
+        q: "How do you handle API versioning in REST APIs? What strategy did you use across your 27+ REST APIs?",
+        a: `API versioning lets you evolve your API without breaking existing clients.
+
+Three common strategies:
+
+1. URI versioning (what I used):
+  /api/v1/books  → original version
+  /api/v2/books  → new version with extra fields
+  - Pros: Simple, visible, easy to test in browser.
+  - Cons: Slightly pollutes the URL.
+
+2. Header versioning:
+  GET /api/books
+  Accept-Version: v2
+  - Pros: Clean URLs.
+  - Cons: Harder to test, not visible in URL.
+
+3. Request parameter versioning:
+  GET /api/books?version=2
+  - Simple but messy for complex APIs.
+
+My approach in projects:
+I used URI versioning (/api/v1/) across all 27 REST APIs in my Student & Placement system. When I added new fields to the Student response in v2, I created /api/v2/students without touching the existing v1 endpoint — so any existing frontend integration continued working.
+
+In my API Gateway (Spring Cloud Gateway), routing rules forward /api/v1/** to the right microservice, making versioning transparent to the individual services.
+
+Simple answer for recruiter: "I use URI versioning — it's simple, explicit, and easy to maintain. Old clients use /v1, new clients use /v2, both work simultaneously."`
+      },
+      {
+        q: "Explain the difference between @RestController and @Controller. What is @RequestBody vs @RequestParam vs @PathVariable?",
+        a: `@Controller: Returns view names (for server-side rendered HTML with Thymeleaf, JSP, etc.).
+@RestController: Returns data (JSON/XML) directly. It's @Controller + @ResponseBody combined. I use @RestController for all my REST APIs.
+
+The three ways to receive data in a controller:
+
+1. @PathVariable — data embedded IN the URL path:
+  GET /api/books/42
+  @GetMapping("/books/{id}")
+  public Book getBook(@PathVariable Long id) { ... }
+  Use for: identifying a specific resource.
+
+2. @RequestParam — data in the URL query string:
+  GET /api/books?author=Chetan&available=true
+  @GetMapping("/books")
+  public List<Book> searchBooks(@RequestParam String author, @RequestParam boolean available) { ... }
+  Use for: filters, search, pagination parameters.
+
+3. @RequestBody — data in the request body (JSON):
+  POST /api/books  { "title": "...", "author": "..." }
+  @PostMapping("/books")
+  public Book createBook(@RequestBody BookRequest request) { ... }
+  Use for: creating or updating resources, sending complex data.
+
+Real usage from my projects: My book search API uses all three:
+  GET /api/v1/books/{bookId}/requests   → @PathVariable for bookId
+  GET /api/v1/books?location=Hyderabad  → @RequestParam for filters
+  POST /api/v1/books/request            → @RequestBody for the request details`
+      },
+      {
+        q: "How do you implement pagination and sorting in Spring Data JPA? Show a real example.",
+        a: `Pagination is essential when you have hundreds or thousands of records — you don't return everything at once.
+
+Spring Data JPA makes this easy with the Pageable interface.
+
+Repository:
+  public interface BookRepository extends JpaRepository<Book, Long> {
+      Page<Book> findByAvailableTrue(Pageable pageable);
+      Page<Book> findByAuthorContaining(String author, Pageable pageable);
+  }
+
+Controller:
+  @GetMapping("/books")
+  public ResponseEntity<Page<Book>> getBooks(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size,
+      @RequestParam(defaultValue = "title") String sortBy,
+      @RequestParam(defaultValue = "asc") String direction) {
+
+      Sort sort = direction.equals("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+      Pageable pageable = PageRequest.of(page, size, sort);
+      Page<Book> books = bookRepository.findByAvailableTrue(pageable);
+      return ResponseEntity.ok(books);
+  }
+
+API call: GET /api/books?page=0&size=10&sortBy=title&direction=asc
+
+The Page<Book> response includes:
+- content: the actual book list
+- totalElements: total books in DB
+- totalPages: how many pages
+- currentPage: which page we're on
+
+This is exactly how I implemented it in my Student & Placement system — students could browse placements in pages of 10, sorted by company name or package. It prevents loading 500 records into memory at once.`
+      },
+      {
+        q: "What is Spring Cloud Gateway and how does it differ from Zuul? Explain how you used it as an API Gateway.",
+        a: `An API Gateway is the single entry point for all client requests. Instead of the React frontend calling 7 different microservice URLs, it calls one gateway URL.
+
+Spring Cloud Gateway vs Zuul:
+- Zuul (Netflix, older): Blocking I/O, servlet-based. Works but less efficient under high load.
+- Spring Cloud Gateway (newer, what I used): Non-blocking, reactive (WebFlux-based). Better performance for high-concurrency scenarios.
+
+How I configured Spring Cloud Gateway in my platform:
+
+application.yml:
+  spring:
+    cloud:
+      gateway:
+        routes:
+          - id: book-service
+            uri: lb://BOOK-SERVICE  # lb:// means load-balanced via Eureka
+            predicates:
+              - Path=/api/books/**
+          - id: auth-service
+            uri: lb://AUTH-SERVICE
+            predicates:
+              - Path=/api/auth/**
+
+Key features I used:
+1. JWT Validation Filter: A GlobalFilter validates JWT on every request before forwarding — individual services don't need their own auth logic.
+2. Load Balancing: lb:// prefix means Gateway asks Eureka for available instances and distributes traffic.
+3. Rate Limiting: Configured rate limiting to 100 requests/minute per user using Redis-backed filters.
+4. CORS: Centralized CORS configuration — React frontend (port 3000) can call the gateway (port 8080).
+
+Result: My React app only needs one base URL. The gateway handles routing, auth, and load balancing transparently.`
+      },
+      {
+        q: "What is Eureka Service Discovery and how does it enable client-side load balancing?",
+        a: `In microservices, services need to find each other. But in Kubernetes, IP addresses change constantly (pods restart, scale). Hardcoding IPs breaks everything.
+
+Eureka solves this: It's a service registry — a phone book for microservices.
+
+How it works:
+1. Each microservice registers itself with Eureka on startup: "I am BOOK-SERVICE, I'm at IP 10.0.0.5:8082".
+2. When my API Gateway needs to call BOOK-SERVICE, it asks Eureka: "Where is BOOK-SERVICE?"
+3. Eureka returns the current IP and port.
+4. If BOOK-SERVICE has 3 instances running, Eureka returns all 3 — enabling load balancing.
+
+My setup in the Book Sharing Platform:
+- Eureka Server: Dedicated service running on port 8761.
+- Every other service (Auth, Book, Request, Notification) has:
+  eureka.client.service-url.defaultZone=http://eureka:8761/eureka/
+  eureka.instance.prefer-ip-address=true
+- Spring Cloud Gateway uses lb:// prefix which automatically discovers instances via Eureka.
+
+Heartbeat mechanism: Services send heartbeats to Eureka every 30 seconds. If Eureka doesn't hear from a service for 90 seconds, it removes it from the registry — automatic failure detection.
+
+Client-side load balancing: Spring Cloud LoadBalancer (built into Gateway) picks which instance to use from Eureka's list using round-robin by default. No external load balancer needed between internal services.`
+      },
+      {
+        q: "How do you implement circuit breakers in Spring Boot? Have you used Resilience4j or Hystrix?",
+        a: `A circuit breaker prevents your application from repeatedly calling a failing service, giving it time to recover.
+
+Real analogy: A house circuit breaker trips when there's a short circuit — it stops current flow to prevent damage. It resets after the problem is fixed.
+
+States:
+- CLOSED (normal): Requests flow through. Circuit breaker monitors failure rate.
+- OPEN (tripped): After X% failures, circuit opens. All requests fail immediately (no waiting for timeout) — fail fast.
+- HALF-OPEN (testing): After a wait period, allows a few test requests. If they succeed, circuit closes again.
+
+Resilience4j (what I use — Hystrix is deprecated):
+  @CircuitBreaker(name = "notificationService", fallbackMethod = "notificationFallback")
+  public void sendNotification(NotificationEvent event) {
+      notificationClient.send(event);  // Calls Notification microservice
+  }
+  public void notificationFallback(NotificationEvent event, Exception e) {
+      // Save to DB queue instead — will be processed when service recovers
+      pendingNotificationRepository.save(new PendingNotification(event));
+  }
+
+In my Book Sharing Platform: If the Notification service goes down, the circuit breaker trips after 5 consecutive failures. Book requests still work normally — the fallback saves the notification to a pending queue in the DB. When Notification service recovers, a scheduler picks up pending notifications and processes them. Users never see an error just because notifications are temporarily down.`
+      },
+      {
+        q: "Explain Spring Boot Actuator — what endpoints it exposes and how you used it for health checks in Kubernetes.",
+        a: `Spring Boot Actuator adds production-ready monitoring endpoints to your application with zero extra code.
+
+Key endpoints:
+- /actuator/health – Application health status (UP/DOWN). Checks DB, Redis, Kafka connectivity.
+- /actuator/info – App metadata (version, build info).
+- /actuator/metrics – JVM memory, CPU, HTTP request counts, response times.
+- /actuator/env – Environment properties.
+- /actuator/loggers – View and change log levels at runtime without restart.
+- /actuator/prometheus – Metrics in Prometheus format (what I used for monitoring).
+
+My Kubernetes configuration:
+In each microservice's Kubernetes Deployment, I configured:
+  livenessProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8080
+    initialDelaySeconds: 60
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /actuator/health/readiness
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 5
+
+- Liveness probe: "Is this pod alive?" If it fails 3 times, Kubernetes restarts the pod.
+- Readiness probe: "Is this pod ready to receive traffic?" If it fails, Kubernetes stops sending traffic to that pod (but doesn't restart it). Useful during startup — pod is alive but DB connection not ready yet.
+
+For Prometheus/Grafana monitoring, I exposed /actuator/prometheus which Prometheus scrapes every 15 seconds to collect metrics for my Grafana dashboards.`
+      },
+      {
+        q: "How do you handle distributed tracing in microservices? Have you used Sleuth or Zipkin?",
+        a: `In microservices, a single user request may travel through 4-5 services. When something is slow or broken, you need to trace the full request path across services.
+
+Problem without tracing: "GET /books is slow" — but is it the Gateway? Book service? DB? Redis? Impossible to tell from individual service logs.
+
+Solution — Distributed Tracing:
+Every request gets a unique Trace ID that flows through ALL services. Each service step gets a Span ID. Together they form a trace tree.
+
+Tools:
+- Spring Cloud Sleuth: Automatically adds Trace ID and Span ID to logs and HTTP headers.
+- Zipkin: UI to visualize the full trace — shows which service took how long.
+
+My implementation:
+1. Added Sleuth dependency to all 7 services — it auto-instruments Spring's RestTemplate, Feign clients, and Kafka.
+2. Every log line automatically includes [bookapp, traceId, spanId]:
+   [bookapp, a1b2c3d4, f5g6h7i8] Book fetched from DB in 45ms
+   [bookapp, a1b2c3d4, j9k0l1m2] Kafka notification sent in 12ms
+3. Zipkin UI shows: Gateway(20ms) → Book-Service(45ms) → Notification-Service(12ms) = total 77ms
+
+This was invaluable during development. When a book request was taking 3 seconds, Zipkin showed me 2.8 seconds was spent in a missing Redis cache miss → fixed it by pre-warming cache → problem solved.`
+      }
+    ]
+  },
+  {
+    section: "SECTION 3: Microservices Architecture (Q29–Q40)",
+    qa: [
+      {
+        q: "What are the key principles of microservices architecture? How did you apply them in your Community Book Sharing Platform?",
+        a: `Microservices is an architectural style where an application is split into small, independent services that run separately and communicate over APIs.
+
+Key principles and how I applied them:
+
+1. Single Responsibility: Each service does ONE thing.
+   My 7 services: Auth (login/JWT), Book (CRUD), Request (borrow/return), Notification (alerts), Gateway (routing), Eureka (discovery), Frontend.
+
+2. Independent Deployment: Deploy one service without touching others.
+   In my Jenkins CI/CD pipeline, each service has its own pipeline — updating Notification doesn't redeploy Book service.
+
+3. Decentralized Data: Each service owns its own database.
+   Book service → books DB. Request service → requests DB. They never share tables.
+
+4. Loose Coupling: Services don't directly depend on each other.
+   Notification service doesn't call Request service. Instead, Request service publishes a Kafka event and Notification service listens — no direct dependency.
+
+5. Failure Isolation: One service failing doesn't crash the system.
+   If Notification service is down, book requests still work. Circuit breaker catches failures gracefully.
+
+6. Horizontal Scaling: Scale only the service that's under load.
+   If book search is getting 1000 requests/minute, I scale only the Book service to 3 replicas in Kubernetes — not the entire app.
+
+Simple answer for recruiter: "I split my platform into 7 focused services, each independently deployed and scaled, communicating via REST and Kafka, so the system is resilient and maintainable."`
+      },
+      {
+        q: "Explain the difference between monolith, SOA, and microservices. What are the trade-offs?",
+        a: `Monolith: The entire application is ONE deployable unit. One codebase, one database, one deployment.
+- Pros: Simple to develop, test, and deploy initially. No network calls between components.
+- Cons: As it grows, changes in one part break others. Can't scale specific features independently. One bug can crash everything.
+
+SOA (Service-Oriented Architecture): Application split into services that communicate via a central Enterprise Service Bus (ESB).
+- Pros: Better than monolith for large enterprises. Services can be reused.
+- Cons: Heavy ESB becomes a bottleneck and single point of failure. Complex, expensive.
+
+Microservices: Application split into small, independent services. No central bus — services communicate directly via REST/messaging.
+- Pros: Independent deployment and scaling. Technology flexibility. Fault isolation.
+- Cons: Complex infrastructure (need service discovery, API gateway, distributed tracing). Network latency between services. Data consistency is harder.
+
+My choice and reasoning:
+I built my Book Sharing Platform as microservices because:
+1. I wanted to learn and demonstrate cloud-native architecture.
+2. Different parts have different scaling needs — book search is read-heavy, notifications are write-heavy.
+3. For a production platform, independent deployment means faster feature releases.
+
+Honest trade-off I experienced: For a side project, microservices added significant operational complexity (Kubernetes, Kafka, service discovery). A monolith would have been faster to build initially. Microservices shine at scale and in teams.`
+      },
+      {
+        q: "How do microservices communicate — synchronous (REST/gRPC) vs asynchronous (Kafka)? Which did you use and why?",
+        a: `Two communication styles:
+
+Synchronous (REST):
+- Service A calls Service B and WAITS for a response.
+- Simple, direct, response immediately available.
+- Problem: If Service B is slow or down, Service A is stuck waiting → cascading failures.
+- I use REST for: operations that need immediate results — "Is this user authenticated?" "What are the book details?"
+
+Asynchronous (Kafka):
+- Service A publishes an event to Kafka and moves on immediately. Service B picks it up when ready.
+- Decoupled — Service A doesn't know or care if Service B is running.
+- Problem: No immediate response. Harder to debug. Need to handle eventual consistency.
+- I use Kafka for: operations where the caller doesn't need to wait — "Send notification", "Update analytics", "Send email".
+
+My exact usage in the Book Sharing Platform:
+- REST (synchronous): Gateway → Auth Service (validate token), Book Service → Eureka (discover services), Frontend → Gateway (all CRUD operations).
+- Kafka (asynchronous): Request Service → Notification Service. When a book request is approved:
+  1. Request Service saves approval to DB and publishes a Kafka event (takes 5ms).
+  2. Returns success response to user immediately.
+  3. Notification Service independently consumes the event and sends notification (takes 80ms).
+  4. User gets the response in 5ms, notification arrives separately — sub-100ms processing latency as mentioned in my resume.
+
+If I had used REST for notifications, approval would take 85ms AND fail if notification service is down.`
+      },
+      {
+        q: "What is the Saga pattern? How would you implement a distributed transaction across your Auth, Book, and Request services?",
+        a: `Problem: In microservices, a single business operation might span multiple services. Traditional DB transactions don't work across services.
+
+Example: "Submit book request" needs to:
+1. Request Service: Create a new request record.
+2. Book Service: Mark book as "pending".
+3. Notification Service: Send notification to book owner.
+
+If step 2 fails after step 1 succeeded, you have inconsistent data — a request exists but the book isn't marked as pending.
+
+Saga pattern: Break the distributed transaction into a sequence of local transactions, each publishing an event for the next step. If a step fails, run compensating transactions to undo previous steps.
+
+Two types:
+1. Choreography (what I used): Each service listens to events and reacts. No central coordinator.
+   - Request Service publishes "RequestCreated" → Book Service listens, marks book as pending, publishes "BookPending" → Notification Service listens, sends alert.
+   - If Book Service fails: It publishes "BookPendingFailed" → Request Service listens and deletes the request (compensation).
+
+2. Orchestration: A central Saga Orchestrator tells each service what to do step by step.
+   - More control, easier to understand flow.
+   - Risk: Orchestrator can become a single point of failure.
+
+My implementation used Choreography via Kafka events because it fit naturally with my existing Kafka setup for notifications and maintained loose coupling between services.`
+      },
+      {
+        q: "How do you handle service-to-service authentication in microservices? Did you propagate the JWT token across your services?",
+        a: `In my Book Sharing Platform, I handle service-to-service authentication with JWT propagation.
+
+Flow:
+1. User logs in → Auth Service returns JWT token.
+2. User calls API Gateway with JWT in the Authorization header.
+3. Gateway validates the JWT (signature, expiry) in a global filter.
+4. Gateway extracts user info (userId, roles) from token and adds it as headers before forwarding:
+   X-User-Id: 123
+   X-User-Roles: ROLE_USER
+5. Downstream services (Book, Request) trust these headers — they don't re-validate the JWT signature.
+
+Why not re-validate JWT in every service?
+- Performance: JWT validation involves cryptographic operations — doing it 5x per request wastes CPU.
+- Separation of concerns: Auth is the Gateway's responsibility.
+- Since internal services are in a private Kubernetes namespace (not publicly accessible), they can trust the Gateway's headers.
+
+For internal service-to-service calls (e.g., Request Service calling Book Service):
+- I pass the original JWT token along with the Feign client call:
+  @FeignClient(name = "book-service")
+  public interface BookClient {
+      @GetMapping("/books/{id}")
+      Book getBook(@PathVariable Long id, @RequestHeader("Authorization") String token);
+  }
+
+For truly machine-to-machine calls (no user context), I would use a separate service account JWT with CLIENT_CREDENTIALS OAuth2 flow — short-lived tokens for inter-service auth.`
+      },
+      {
+        q: "What is the CQRS pattern? Would you apply it to your Book Sharing Platform? How?",
+        a: `CQRS (Command Query Responsibility Segregation) separates READ operations (queries) from WRITE operations (commands) into distinct models and often separate services.
+
+Normal approach (without CQRS):
+  bookService.createBook(book);     // Write
+  bookService.getBook(id);          // Read
+  // Same model, same DB, same service for both
+
+CQRS approach:
+  Command side: BookCommandService → handles create/update/delete → writes to MySQL (normalized, ACID).
+  Query side: BookQueryService → handles all reads → reads from a denormalized read model (could be Elasticsearch, Redis, or a separate read DB optimized for queries).
+
+Benefits: Read and write can be scaled independently. Complex queries don't lock write tables.
+
+Would I apply it to my Book Sharing Platform? Yes, partially:
+- The geolocation-based book search is a perfect CQRS candidate. Currently it queries MySQL with location filters — this works but doesn't scale for 10,000+ books across a city.
+- With CQRS: When a book is created/updated (command), publish a Kafka event. A read model service consumes the event and indexes the book in Elasticsearch with geo-coordinates. The search API (query side) hits Elasticsearch for fast, geo-filtered results.
+
+This is the natural evolution of my current architecture — Kafka is already in place, making CQRS addition straightforward.`
+      },
+      {
+        q: "How did Spring Cloud Gateway handle routing, authentication, and rate limiting in your project?",
+        a: `My API Gateway acts as the front door for all 7 services. Here's exactly what it does:
+
+1. Routing:
+Routes are defined in application.yml. Every request to /api/books/** is forwarded to BOOK-SERVICE, /api/auth/** to AUTH-SERVICE, etc. Service discovery via Eureka means routes use lb:// (load-balanced) URIs — no hardcoded IPs.
+
+2. Authentication (JWT Validation Filter):
+  @Component
+  public class JwtAuthFilter implements GlobalFilter {
+      @Override
+      public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+          String token = exchange.getRequest().getHeaders().getFirst("Authorization");
+          if (!jwtUtil.isValid(token)) {
+              exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+              return exchange.getResponse().setComplete();
+          }
+          // Add user info to forwarded headers
+          ServerHttpRequest modified = exchange.getRequest().mutate()
+              .header("X-User-Id", jwtUtil.getUserId(token)).build();
+          return chain.filter(exchange.mutate().request(modified).build());
+      }
+  }
+  Public endpoints (/api/auth/login, /api/auth/register) are whitelisted — no JWT needed.
+
+3. Rate Limiting:
+  filters:
+    - name: RequestRateLimiter
+      args:
+        redis-rate-limiter.replenishRate: 10   # 10 requests/second
+        redis-rate-limiter.burstCapacity: 20
+        key-resolver: "#{@userKeyResolver}"    # Per-user rate limiting
+  Uses Redis to track request counts per user. Returns HTTP 429 (Too Many Requests) when exceeded.`
+      },
+      {
+        q: "How do you manage configuration across 7 microservices? Did you use Spring Cloud Config or Kubernetes ConfigMaps?",
+        a: `I used both, for different types of configuration:
+
+Kubernetes ConfigMaps (for environment-specific config):
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: book-service-config
+  data:
+    SPRING_DATASOURCE_URL: jdbc:mysql://mysql-service:3306/bookdb
+    EUREKA_URI: http://eureka-service:8761/eureka/
+    REDIS_HOST: redis-service
+Each service has its own ConfigMap. I mount it as environment variables in the Deployment spec. This keeps config separate from the Docker image — same image runs in dev/staging/prod with different ConfigMaps.
+
+Kubernetes Secrets (for sensitive data):
+  kubectl create secret generic jwt-secret --from-literal=JWT_SECRET=mySecretKey123
+DB passwords, JWT secret key, AWS credentials stored as Kubernetes Secrets (base64 encoded, not in Git).
+
+Spring profiles (for code-level config differences):
+  application-dev.properties   → local dev settings
+  application-prod.properties  → production settings
+  Active profile set via environment variable: SPRING_PROFILES_ACTIVE=prod
+
+Spring Cloud Config (considered but didn't use):
+For a centralized config server, Spring Cloud Config would store all configs in a Git repo and all services pull from it. I chose Kubernetes-native ConfigMaps instead since I was already running on Kubernetes — one less service to manage.
+
+Simple answer: "I use Kubernetes ConfigMaps for service configuration and Secrets for credentials. Different environments use different ConfigMaps with the same Docker image."`
+      },
+      {
+        q: "What is the Strangler Fig pattern? When would you use it to migrate a monolith to microservices?",
+        a: `The Strangler Fig pattern is a strategy for gradually migrating a monolith to microservices — without a risky "big bang" rewrite.
+
+The name comes from a strangler fig tree that grows around a host tree, gradually replacing it. The old tree continues to function as the new one takes over.
+
+How it works:
+1. Start with the monolith running and serving all traffic.
+2. Put an API Gateway (or reverse proxy) in front of the monolith.
+3. Extract one feature at a time into a new microservice.
+4. Update the gateway to route that feature's requests to the new microservice.
+5. The monolith still handles everything else.
+6. Repeat until the monolith is fully replaced (or only handles legacy features).
+
+Example scenario:
+Imagine my Student & Placement Management System was a monolith. I'd extract the Placement module first (it's read-heavy and clearly defined). New traffic to /api/placements → new Placement Microservice. Everything else → monolith. Zero downtime, no big rewrite risk.
+
+Key benefit: At any point, if the new microservice has bugs, you can route traffic back to the monolith. Rollback is easy.
+
+When to use it: Always prefer this over a full rewrite for production systems. Full rewrites are risky — you're rewriting AND deploying simultaneously. Strangler Fig lets you migrate incrementally with confidence.`
+      },
+      {
+        q: "How do you handle partial failures in a microservices system? What if your Notification service goes down?",
+        a: `This is a critical design concern. My Book Sharing Platform is designed so that Notification service failure DOES NOT affect the core book-borrowing flow.
+
+Layers of protection I built:
+
+1. Asynchronous decoupling (Kafka):
+When a book request is approved, the Request Service publishes a Kafka event and returns success immediately. It does NOT wait for the Notification Service. If Notification service is down, the event stays in the Kafka topic (retained for 7 days by default).
+
+2. Circuit Breaker (Resilience4j):
+If any service calls Notification Service directly and it's failing, the circuit breaker opens after 5 failures. Subsequent calls fail fast (no timeout waiting) and hit the fallback method which saves the notification to a pending_notifications DB table.
+
+3. Kafka consumer offset management:
+When Notification Service comes back online, it resumes consuming from where it left off (last committed offset). No events are lost. All queued notifications are processed automatically.
+
+4. Health checks in Kubernetes:
+Kubernetes readiness probe detects if Notification Service is unhealthy and stops routing traffic to that pod. Liveness probe restarts the pod if it's truly stuck.
+
+5. Alerting via Grafana:
+I set up Grafana alerts on Kafka consumer lag — if the Notification Service consumer falls more than 100 messages behind, I get an alert to investigate.
+
+Result: Users can borrow and return books normally even if notifications are delayed. They'll receive their notifications once the service recovers — eventual delivery guaranteed by Kafka.`
+      },
+      {
+        q: "What are the challenges of distributed logging in microservices? How do you correlate logs across your 7 services?",
+        a: `Problem with microservices logging:
+Each service writes logs to its own container. When a user reports "my book request failed", I need to find the relevant log entries across Gateway, Auth, Book, and Request services — all with different timestamps and no shared identifier by default.
+
+My solution — Correlation IDs with Spring Cloud Sleuth:
+
+1. Unique Trace ID per request: Sleuth automatically assigns a UUID to every incoming request — the Trace ID.
+2. Propagated via HTTP headers: When Gateway forwards the request to Book Service, it adds X-B3-TraceId header. Sleuth in Book Service picks it up.
+3. All log lines include the Trace ID:
+   [gateway]        [a1b2c3,a1b2c3] Routing to BOOK-SERVICE
+   [book-service]   [a1b2c3,d4e5f6] Fetching book id=42 from DB
+   [request-service][a1b2c3,g7h8i9] Creating request for book id=42
+   [notification]   [a1b2c3,j0k1l2] Kafka event received, sending alert
+
+4. Centralized log aggregation: In my Kubernetes setup, all pod logs stream to a central location. I can search by Trace ID to see the complete journey of one request across all 7 services.
+
+5. Kafka Trace propagation: Sleuth also propagates the trace context through Kafka message headers, so the notification event processing also appears in the same trace.
+
+Simple answer: "I use Spring Cloud Sleuth to automatically add a shared Trace ID to every request, which propagates through REST calls and Kafka events. I can search for one Trace ID and see the full request flow across all services."`
+      },
+      {
+        q: "How would you design the data model for your Book Sharing Platform? Does each microservice have its own database? Why?",
+        a: `Yes — Database per Service is a fundamental microservices principle I followed. Each service owns its data exclusively.
+
+My data model:
+
+Auth Service DB (auth_db):
+  users: id, email, password_hash, role, created_at
+  refresh_tokens: id, user_id, token, expires_at
+
+Book Service DB (book_db):
+  books: id, title, author, isbn, owner_id, location, latitude, longitude, available, cover_image_s3_url
+  book_categories: book_id, category
+
+Request Service DB (request_db):
+  requests: id, book_id, requester_id, owner_id, status (PENDING/APPROVED/REJECTED/RETURNED), message, created_at, updated_at
+
+Notification Service DB (notification_db):
+  notifications: id, user_id, message, type, read, created_at, related_entity_id
+
+Why separate databases?
+1. Independent deployment: I can migrate book_db schema without touching auth_db.
+2. Right tool for the job: If I added search, I'd use Elasticsearch for Book Service while keeping MySQL for others.
+3. Fault isolation: A corrupt notification_db doesn't affect book data.
+4. Team autonomy: Different teams own different service databases.
+
+Challenge — cross-service queries:
+I can't do SQL JOIN across services. Solution: Compose data in the API layer.
+Example: Book list with owner names → Book Service returns books with owner_id → Frontend makes a second call to Auth Service for user names. Or the Gateway/BFF composes the response.`
+      }
+    ]
+  },
+  {
+    section: "SECTION 4: Apache Kafka & Event-Driven Systems (Q41–Q50)",
+    qa: [
+      {
+        q: "Explain Kafka's core architecture — brokers, topics, partitions, consumer groups, and offsets.",
+        a: `Kafka is a distributed event streaming platform. Think of it as a highly durable, high-throughput message queue.
+
+Core components:
+
+Broker: A Kafka server. Messages are stored on brokers. A Kafka cluster has multiple brokers for redundancy.
+
+Topic: A named channel where messages are published. Like a table in a DB but for events. I have topics like book-request-events, notification-events.
+
+Partition: Each topic is split into partitions — ordered, immutable sequences of messages. Partitions allow parallel processing and horizontal scaling. If I have 3 partitions, up to 3 consumers can process simultaneously.
+
+Offset: A number that identifies a message's position in a partition. Consumer tracks which offset it has processed. If consumer crashes, it resumes from the last committed offset — no messages lost.
+
+Producer: Publishes messages to a topic. My Request Service is a producer — it publishes "RequestApproved" events.
+
+Consumer Group: A group of consumers that collectively read from a topic. Each partition is assigned to exactly one consumer in the group. My Notification Service has a consumer group "notification-group".
+
+How I used it:
+  Request Service (Producer) → [book-request-events topic, 3 partitions] → Notification Service (Consumer Group, 3 instances)
+  Each Notification Service instance handles one partition. If I scale to 3 instances, I get 3x throughput. Sub-100ms processing latency because Kafka is in-memory and the consumer is always running.`
+      },
+      {
+        q: "What is the difference between Kafka and RabbitMQ? Why did you choose Kafka?",
+        a: `Both are message brokers but with different design philosophies.
+
+RabbitMQ:
+- Traditional message queue (push-based). Broker pushes messages to consumers.
+- Messages are deleted after consumption (by default).
+- Better for complex routing patterns (exchanges, bindings, routing keys).
+- Easier to set up for simple use cases.
+- Good for task queues, RPC patterns.
+
+Kafka:
+- Distributed event log (pull-based). Consumers pull messages at their own pace.
+- Messages are retained for a configurable period (I use 7 days) — multiple consumers can read the same message independently.
+- Designed for high throughput — millions of messages per second.
+- Consumer tracks its own offset — can replay events from any point.
+- Better for event sourcing, audit logs, stream processing.
+
+Why I chose Kafka for my Book Sharing Platform:
+
+1. High throughput requirement: Sub-100ms notification latency needed reliable, fast event delivery — Kafka is built for this.
+
+2. Multiple consumers of the same event: A "RequestApproved" event should trigger BOTH a notification AND an analytics update. In RabbitMQ, one consumer gets the message. In Kafka, both Notification Service and Analytics Service can independently consume the same event.
+
+3. Event replay: During development, if the Notification Service had a bug, I could replay events from the past to re-process them after fixing. RabbitMQ deletes messages after consumption.
+
+4. Durability: Kafka persists messages to disk and replicates across brokers. No message loss even if a broker crashes.`
+      },
+      {
+        q: "How do you guarantee message ordering in Kafka? What happens if a consumer fails mid-processing?",
+        a: `Message ordering in Kafka:
+Kafka guarantees ordering WITHIN a partition, not across partitions.
+
+If I need all events for a specific book to be processed in order (create → update → delete), I use the book ID as the partition key:
+  producer.send(new ProducerRecord<>("book-events", bookId.toString(), event));
+Kafka hashes the key to always route the same book ID to the same partition. All events for that book are ordered in that partition.
+
+If ordering doesn't matter (e.g., independent notifications), I can use round-robin partitioning for maximum throughput.
+
+What happens when consumer fails mid-processing:
+
+Scenario: Consumer reads message at offset 50, starts processing (sending notification), crashes at 40% done.
+
+Without offset commit: Consumer never committed offset 50. On restart, it requeues from offset 50 and reprocesses. This is at-least-once delivery — the notification might be sent twice.
+
+My handling for idempotency:
+  @KafkaListener(topics = "notification-events", groupId = "notification-group")
+  public void handleNotification(NotificationEvent event) {
+      // Check if already processed
+      if (notificationRepository.existsByEventId(event.getEventId())) {
+          return;  // Skip duplicate
+      }
+      sendNotification(event);
+      notificationRepository.save(new ProcessedEvent(event.getEventId()));
+  }
+Each event has a unique eventId. Before processing, I check if it's been processed before. This ensures exactly-once behavior at the application level — safe for duplicate deliveries.`
+      },
+      {
+        q: "Explain Kafka consumer group rebalancing. What is partition assignment?",
+        a: `Consumer Group Rebalancing is the process of redistributing partition assignments among consumers when the group membership changes.
+
+Triggers for rebalancing:
+- A new consumer joins the group (scale up)
+- A consumer leaves or crashes (scale down)
+- New partitions are added to the topic
+
+Example with my Notification Service:
+Topic: notification-events (3 partitions: P0, P1, P2)
+
+Initially 1 consumer (C1):
+  C1 → handles P0, P1, P2
+
+Scale to 3 consumers (C1, C2, C3) — rebalancing happens:
+  C1 → handles P0
+  C2 → handles P1
+  C3 → handles P2
+Now processing is 3x faster.
+
+If C2 crashes — rebalancing:
+  C1 → handles P0, P1
+  C3 → handles P2
+
+During rebalancing: All consumers STOP processing momentarily (stop-the-world pause). This is called "eager rebalancing". Modern Kafka uses "cooperative incremental rebalancing" to minimize the pause — only affected partitions are reassigned.
+
+Heartbeat mechanism:
+Consumers send heartbeats to the Group Coordinator broker. If a consumer misses heartbeats for session.timeout.ms (default 45s), it's considered dead and triggers rebalancing.
+
+My configuration:
+  max.poll.interval.ms=300000  (5 min — long enough for slow notification batches)
+  session.timeout.ms=45000
+  heartbeat.interval.ms=15000
+I tuned these to prevent false rebalancing when my notification processing takes longer than expected.`
+      },
+      {
+        q: "What is exactly-once semantics in Kafka? How do you achieve it and when is it necessary?",
+        a: `Kafka supports three delivery guarantees:
+
+1. At-most-once: Messages may be lost but never duplicated. Fast but unreliable. Consumer auto-commits offsets before processing.
+
+2. At-least-once: Messages may be duplicated but never lost. My default approach — commit offset only after successful processing. On failure, message is reprocessed.
+
+3. Exactly-once: Message processed exactly once — no loss, no duplicates. The hardest to achieve.
+
+How to achieve exactly-once in Kafka:
+
+Producer side — Idempotent producer:
+  props.put("enable.idempotence", "true");
+  props.put("transactional.id", "request-service-txn-1");
+Kafka assigns a Producer ID and sequence numbers. If the same message is sent twice (network retry), the broker deduplicates it.
+
+Consumer side — Transactional reads:
+Read from Kafka + write to DB + commit offset in a single atomic transaction. Either all happen or none do.
+
+Alternatively (what I do) — Application-level idempotency:
+Store a processed event ID in the DB. Before processing, check if it was already handled. This is simpler and works across Kafka topic rebalancing.
+
+When is exactly-once necessary?
+- Financial transactions (transfer $100 — can't do it twice)
+- Inventory updates (reduce stock by 1 — not 2)
+
+For my notification service, at-least-once with idempotency check is sufficient — receiving a duplicate notification is annoying but not harmful. For a payment service, exactly-once would be mandatory.`
+      },
+      {
+        q: "How do you handle dead letter queues (DLQ) in Kafka? What happens to failed messages?",
+        a: `A Dead Letter Queue (DLQ) is a special topic where messages that failed to process successfully are sent — instead of being lost or blocking the main topic.
+
+Problem without DLQ:
+Consumer receives message → processing fails (bad data, downstream service unavailable) → consumer retries → still fails → consumer is stuck, can't process newer messages → entire partition is blocked.
+
+My DLQ implementation:
+  @KafkaListener(topics = "notification-events")
+  public void handleNotification(NotificationEvent event) {
+      try {
+          processNotification(event);
+      } catch (Exception e) {
+          if (retryCount(event) < 3) {
+              // Retry with exponential backoff: 1s, 2s, 4s
+              retryTemplate.execute(ctx -> processNotification(event));
+          } else {
+              // Max retries exceeded — send to DLQ
+              kafkaTemplate.send("notification-events-dlq", event);
+              log.error("Event sent to DLQ after 3 retries: {}", event.getEventId());
+          }
+      }
+  }
+
+Spring Kafka's built-in DLQ support:
+  @Bean
+  public DefaultErrorHandler errorHandler(KafkaTemplate<?, ?> template) {
+      DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template);
+      BackOff backOff = new FixedBackOff(1000L, 3L);  // 3 retries, 1s apart
+      return new DefaultErrorHandler(recoverer, backOff);
+  }
+This automatically sends to {topicName}.DLT after max retries.
+
+DLQ monitoring: I set up Grafana alerts on DLQ topic size — if more than 10 messages accumulate in the DLQ, I get an alert to investigate the failure reason.`
+      },
+      {
+        q: "What is Kafka Streams? How does it differ from a regular Kafka consumer?",
+        a: `Regular Kafka Consumer: Reads messages one by one (or in batches) and processes them imperatively. You write the processing logic yourself. Good for simple consume-and-act patterns.
+
+Kafka Streams: A Java library for building stateful stream processing applications. It provides a higher-level DSL for filtering, mapping, joining, and aggregating streams of events. It handles state management, fault tolerance, and scaling automatically.
+
+Key differences:
+- Regular Consumer: I read a notification event and send a notification. Stateless, simple.
+- Kafka Streams: I can aggregate — "count book requests per city per hour" — maintaining state across messages. It handles that state for you.
+
+Example of what Kafka Streams could do in my platform:
+  KStream<String, BookRequestEvent> requests = builder.stream("book-request-events");
+
+  // Count requests per city in 1-hour windows
+  KTable<Windowed<String>, Long> requestsPerCity = requests
+      .groupBy((key, value) -> value.getCity())
+      .windowedBy(TimeWindows.of(Duration.ofHours(1)))
+      .count();
+
+  requestsPerCity.toStream().to("city-request-stats");
+This would feed a real-time analytics dashboard showing which cities have the most book-sharing activity.
+
+Did I use Kafka Streams? For my current project, regular Kafka consumers sufficed. Kafka Streams would be my next step for adding real-time analytics — showing trends like "most borrowed books this week" on the admin dashboard without running expensive DB queries.`
+      },
+      {
+        q: "How do you monitor Kafka consumer lag? What tools did you use?",
+        a: `Consumer lag is the number of unprocessed messages in a Kafka topic — how far behind a consumer is from the latest message.
+
+High lag means: consumers are slower than producers. Either consumer is slow, or there's a sudden spike in events, or the consumer service is down.
+
+Monitoring tools:
+
+1. Kafka command line (basic check):
+  kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group notification-group
+  Output shows: TOPIC, PARTITION, CURRENT-OFFSET, LOG-END-OFFSET, LAG
+  LAG = LOG-END-OFFSET - CURRENT-OFFSET
+
+2. Prometheus + Grafana (what I used in production):
+The kafka-exporter exposes Kafka metrics to Prometheus:
+  kafka_consumergroup_lag{consumergroup="notification-group", topic="notification-events"}
+I created a Grafana panel showing lag over time. Alert rule: If lag > 100 messages for > 5 minutes → send alert.
+
+3. JMX metrics from consumer application:
+Spring Kafka exposes consumer lag via JMX, which Prometheus picks up via micrometer-registry-prometheus:
+  kafka.consumer.fetch-manager-metrics.records-lag-max
+
+My response to high lag:
+1. Check if Notification Service pods are healthy.
+2. If healthy but slow → scale horizontally (increase pod replicas up to partition count).
+3. If message format errors causing failures → check DLQ, fix consumer, replay from offset.
+
+In practice: My 3-partition notification topic with 1 consumer handled bursts well. When I tested with 1000 simultaneous requests, lag peaked at 85 but cleared within 8 seconds.`
+      },
+      {
+        q: "How do you serialize/deserialize messages in Kafka? What are the trade-offs?",
+        a: `Serialization converts Java objects to bytes (for Kafka storage) and deserialization converts bytes back to Java objects.
+
+Options:
+
+1. JSON (what I use):
+  props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+  props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+  props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.bookplatform.events");
+  - Pros: Human-readable, easy to debug, no schema registry needed, flexible.
+  - Cons: Verbose (field names repeated in every message), no built-in schema validation, slower than binary formats.
+  - Best for: Internal microservices, development, moderate throughput.
+
+2. Avro (with Schema Registry):
+  - Pros: Compact binary format (much smaller than JSON), built-in schema evolution (add fields without breaking consumers), schema is enforced.
+  - Cons: Requires a running Schema Registry service, harder to debug (binary), more setup.
+  - Best for: High-throughput systems, teams with strict schema contracts.
+
+3. Protobuf (Google):
+  - Pros: Very compact, strongly typed, excellent for cross-language systems.
+  - Cons: Requires .proto file compilation, more complex setup.
+  - Best for: Multi-language microservices, extreme performance requirements.
+
+My choice and reasoning:
+I use JSON for my Book Sharing Platform. At my scale (notifications for a community book sharing app), JSON is fast enough and the human-readability makes debugging much easier. If I were scaling to millions of events per second, I'd migrate to Avro with Schema Registry.`
+      },
+      {
+        q: "If your Kafka broker goes down, what happens to your Book Sharing Platform? How would you design for fault tolerance?",
+        a: `With a single Kafka broker (not recommended for production), if it goes down:
+- Producers (Request Service) can't publish events → fail to send notifications.
+- Consumers (Notification Service) can't consume → notifications stop.
+- Core book operations (CRUD via REST) still work since they don't use Kafka.
+
+My fault tolerance design:
+
+1. Kafka Cluster with replication (production setup):
+  - Minimum 3 brokers. Each topic partition replicated across 2+ brokers (replication factor = 3).
+  - If Broker 1 goes down, Broker 2 is already an in-sync replica with all messages. Automatic leader election in seconds.
+  - No data loss, minimal downtime.
+
+2. Producer retry with acknowledgment:
+  props.put("acks", "all");  // Wait for ALL replicas to acknowledge
+  props.put("retries", 3);
+  props.put("retry.backoff.ms", 1000);
+  "acks=all" ensures the message is safely replicated before the producer considers it sent.
+
+3. Application-level fallback:
+  If Kafka publish fails even after retries → save event to a pending_events DB table.
+  A scheduler (every 30 seconds) checks pending_events and retries publishing to Kafka.
+  This ensures zero notification loss even during Kafka downtime.
+
+4. Kubernetes: If Kafka pod crashes, Kubernetes restarts it automatically. With a PersistentVolumeClaim, the Kafka log files survive pod restarts — no data loss on restart.
+
+Simple answer for recruiter: "I use Kafka clustering with 3 brokers and replication factor 3, combined with an application-level fallback queue in the DB. The system continues operating and catches up on notifications after Kafka recovers."`
+      }
+    ]
+  },
+  {
+    section: "SECTION 5: Databases, Redis & Caching (Q51–Q60)",
+    qa: [
+      {
+        q: "Explain the difference between SQL and NoSQL databases. Why did you choose MySQL?",
+        a: `SQL (Relational): Structured tables with rows and columns. Schema defined upfront. Uses SQL for queries. Strong ACID guarantees. Relationships enforced with foreign keys. Examples: MySQL, PostgreSQL.
+
+NoSQL (Non-Relational): Flexible schemas. Several types — Document (MongoDB), Key-Value (Redis), Column-Family (Cassandra), Graph (Neo4j). Designed for horizontal scaling and flexible data.
+
+Why I chose MySQL:
+1. Structured data: My book, student, and user data is naturally relational. Books have owners (users), requests link books to users — JOINs are natural.
+2. ACID transactions: Book request approval needs atomicity — mark request approved AND mark book unavailable in one transaction. MySQL guarantees this.
+3. Spring Data JPA compatibility: Seamless integration with Hibernate — I write Java objects, not SQL tables.
+4. Familiarity and tooling: Excellent documentation, widespread use in industry, easy to run locally and on AWS RDS.
+
+When I'd consider NoSQL:
+- MongoDB: If books had highly variable schemas (some books have 5 attributes, others have 50).
+- Redis: Already use it for caching — fast key-value access.
+- Cassandra: If I needed to store millions of user activity events and needed write-heavy, time-series data at scale.
+- Elasticsearch: For full-text book search — much better than LIKE queries in MySQL.
+
+The right database depends on the use case. For my core transactional data, MySQL is the best fit.`
+      },
+      {
+        q: "What are database indexes? Explain B-tree indexes and when you would add an index.",
+        a: `An index is a data structure that speeds up data retrieval. Without an index, the DB scans every row (full table scan). With an index, it jumps directly to matching rows — like an index in a book vs reading every page.
+
+B-tree Index (most common in MySQL):
+- Balanced tree structure. Root → branches → leaf nodes containing row pointers.
+- Supports: equality (=), range queries (<, >, BETWEEN), sorting (ORDER BY), and prefix matching (LIKE 'Java%').
+- O(log n) search instead of O(n).
+
+When I add indexes:
+
+1. Primary Key (auto-indexed): Every table has a primary key (book_id, user_id). MySQL auto-creates a clustered B-tree index.
+
+2. Foreign Keys: I index owner_id in the books table since I frequently query "all books by this owner".
+   CREATE INDEX idx_books_owner ON books(owner_id);
+
+3. Columns in WHERE clause:
+   Frequent query: SELECT * FROM books WHERE location = 'Hyderabad' AND available = true;
+   Composite index: CREATE INDEX idx_books_location_available ON books(location, available);
+
+4. Columns in ORDER BY / GROUP BY: I index created_at in the requests table for sorted pagination.
+
+When NOT to over-index:
+Each index slows down INSERT/UPDATE/DELETE (indexes need updating). A table with 10 indexes has slow writes. I only add indexes for high-frequency queries.
+
+In my Student & Placement system: Adding indexes on student_id and company_name in the placements table reduced the "placement statistics" API from 800ms to 45ms.`
+      },
+      {
+        q: "Explain database normalization (1NF, 2NF, 3NF) and when denormalization is appropriate.",
+        a: `Normalization is organizing a database to reduce data redundancy and improve data integrity.
+
+1NF (First Normal Form): Each column has atomic (single) values. No repeating groups.
+Bad: books table with categories column = "Fiction, Science, Adventure" (multiple values in one column).
+Good: Separate book_categories table with one row per category per book.
+
+2NF (Second Normal Form): Must be in 1NF + every non-key column depends on the ENTIRE primary key.
+Applies to tables with composite keys. If a table has (book_id, author_id) as composite key, then author_name should be in a separate authors table — not in the junction table, since author_name depends only on author_id, not the full composite key.
+
+3NF (Third Normal Form): Must be in 2NF + no transitive dependencies (non-key columns shouldn't depend on other non-key columns).
+Bad: requests table has city and city_pincode. city_pincode depends on city, not on request_id → transitive dependency.
+Good: Move city info to a separate cities table.
+
+My design: I followed 3NF for all my microservice databases to maintain data integrity and avoid update anomalies.
+
+When to denormalize:
+Normalization increases joins → slower reads. For read-heavy scenarios, I denormalize strategically:
+- In my notifications table, I store user_name directly (denormalized from users table) so the "My Notifications" API doesn't need a JOIN every time.
+- For reporting queries (total books per city), I use a pre-aggregated summary table updated via Kafka events rather than running GROUP BY on millions of rows.`
+      },
+      {
+        q: "What are the ACID properties? How does MySQL ensure them?",
+        a: `ACID is a set of properties that guarantee database transactions are processed reliably.
+
+A — Atomicity: A transaction is all or nothing. Either ALL operations succeed, or ALL are rolled back. No partial updates.
+MySQL: Uses undo logs. If a transaction fails midway, MySQL uses the undo log to reverse all changes.
+
+C — Consistency: A transaction brings the database from one valid state to another. Business rules (constraints, foreign keys) are always enforced.
+MySQL: Enforces foreign key constraints, unique constraints, check constraints. A book request can't reference a non-existent book_id.
+
+I — Isolation: Concurrent transactions don't interfere with each other. One transaction's intermediate state is invisible to others.
+MySQL: Uses MVCC (Multi-Version Concurrency Control). Readers don't block writers. MySQL shows readers a consistent snapshot of data as of when their transaction started.
+
+D — Durability: Once a transaction commits, it stays committed — even if the server crashes.
+MySQL: Uses redo logs (write-ahead logging). Before data is written to disk, the change is written to a redo log. On crash recovery, MySQL replays the redo log.
+
+Real example from my project:
+@Transactional
+public void approveRequest(Long requestId) {
+    request.setStatus(APPROVED);  // Operation 1
+    book.setAvailable(false);     // Operation 2
+    // If operation 2 fails (e.g., book not found), operation 1 is rolled back
+    // ATOMICITY guaranteed by Spring + MySQL's undo logs
+}`
+      },
+      {
+        q: "Explain the difference between optimistic and pessimistic locking. When would you use each?",
+        a: `Both prevent conflicts when multiple users try to update the same data simultaneously.
+
+Pessimistic Locking: "Assume conflict will happen — lock the row immediately."
+- When reading data you intend to update, acquire a DB lock that prevents others from reading/writing.
+- Other transactions wait until the lock is released.
+- Use when: High contention, conflicts are likely, data integrity is critical.
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT b FROM Book b WHERE b.id = :id")
+  Book findByIdForUpdate(@Param("id") Long id);
+  In my Book Platform: When two users simultaneously try to request the same (last available copy of a) book, I use pessimistic locking on the book row. First user gets the lock, marks book unavailable, releases lock. Second user reads "available=false" and gets a proper error.
+
+Optimistic Locking: "Assume no conflict — don't lock, but verify at save time."
+- Add a version field to the entity. When updating, check that the version in DB still matches what you read. If someone else updated it in between (version changed), throw OptimisticLockException and retry.
+- No blocking — better performance for low-contention scenarios.
+  @Version
+  private Long version;
+  Use when: Low contention, reads far outnumber writes, performance matters.
+  I use optimistic locking for book profile updates (title, description) — rare conflicts, high read volume.
+
+Simple rule: Pessimistic for critical, high-contention operations. Optimistic for most other updates.`
+      },
+      {
+        q: "How does Redis work as a cache? What data structures did you use and where?",
+        a: `Redis (Remote Dictionary Server) is an in-memory data store. It keeps data in RAM — reads are 100x faster than a database query.
+
+How caching works (Cache-Aside pattern I use):
+1. Request comes in for a book.
+2. Check Redis first: Is "book:42" in cache?
+3. Cache HIT: Return from Redis (1-2ms). Skip DB entirely.
+4. Cache MISS: Query MySQL (50-100ms). Store result in Redis. Return to user.
+5. Next request for same book → Cache HIT.
+
+Redis data structures I used:
+
+String (simple key-value): Most common.
+  redisTemplate.opsForValue().set("book:42", bookJson, 1, TimeUnit.HOURS);
+  Used for: Caching individual book details, user sessions, JWT blacklist.
+
+Hash (field-value pairs, like a mini object):
+  redisTemplate.opsForHash().put("user:session:123", "userId", "42");
+  redisTemplate.opsForHash().put("user:session:123", "role", "USER");
+  Used for: User session data — multiple fields under one key, efficient partial updates.
+
+List (ordered collection):
+  redisTemplate.opsForList().leftPush("recent:searches:" + userId, searchQuery);
+  Used for: Storing recent search history per user (keep last 10).
+
+Set (unique, unordered):
+  redisTemplate.opsForSet().add("book:42:requesters", userId.toString());
+  Used for: Tracking which users requested a specific book — no duplicates.
+
+Sorted Set (unique with score):
+  redisTemplate.opsForZSet().add("popular:books", bookId.toString(), requestCount);
+  Used for: Leaderboard of most-requested books — sorted by request count.
+
+Result: Redis caching improved my repeated query response time by 60% as mentioned in my resume.`
+      },
+      {
+        q: "What caching strategies did you implement? How did you achieve 60% improvement in query response time?",
+        a: `I used the Cache-Aside (Lazy Loading) pattern as my primary strategy, with specific optimizations for different use cases.
+
+Strategy 1 — Cache-Aside (main approach):
+Application manages cache explicitly. On cache miss, load from DB and populate cache.
+  public Book getBook(Long id) {
+      String key = "book:" + id;
+      Book cached = (Book) redisTemplate.opsForValue().get(key);
+      if (cached != null) return cached;
+      Book book = bookRepository.findById(id).orElseThrow();
+      redisTemplate.opsForValue().set(key, book, 2, TimeUnit.HOURS);
+      return book;
+  }
+
+Strategy 2 — Cache Warming (@PostConstruct):
+On service startup, pre-load top 50 most-requested books into Redis. First requests are instant.
+
+Strategy 3 — Write-Through for availability:
+When a book is marked unavailable (borrowed), I immediately update both MySQL and Redis. No stale "available" data served to users.
+  public void markBookUnavailable(Long bookId) {
+      bookRepository.updateAvailability(bookId, false);
+      redisTemplate.opsForValue().set("book:" + bookId, updatedBook, 2, TimeUnit.HOURS);
+  }
+
+Strategy 4 — Geolocation search caching:
+The geolocation query (find books near me) is expensive — involves latitude/longitude calculations across all books. I cache search results per location+radius combination with a 30-minute TTL.
+  String cacheKey = "search:" + lat + ":" + lng + ":5km";
+
+The 60% improvement: 
+Before caching, the book detail page loaded in ~120ms (DB query). After caching, cache hits return in ~2ms. With ~75% cache hit rate, average response time dropped to ~32ms — a 73% improvement. The 60% figure in my resume was conservative based on end-to-end API response time including network overhead.`
+      },
+      {
+        q: "What is cache invalidation and why is it hard? How do you handle stale data in Redis?",
+        a: `Cache invalidation is the process of removing or updating cached data when the source data changes. It's famously hard because you need to keep cache and DB in sync.
+
+The two hard problems of computer science: "Naming things and cache invalidation."
+
+The stale data problem:
+User A caches book details (available=true) with 2-hour TTL.
+User B borrows the book → DB updated to available=false.
+User A's cached version still shows available=true for up to 2 hours. Wrong data.
+
+My strategies:
+
+1. TTL (Time-To-Live) — simplest:
+  redisTemplate.opsForValue().set("book:42", book, 30, TimeUnit.MINUTES);
+Cache automatically expires after 30 minutes. Max staleness = 30 minutes. Fine for non-critical data like book descriptions. Not fine for availability.
+
+2. Explicit invalidation on write (what I use for availability):
+  public void updateBook(Long id, BookUpdateRequest req) {
+      bookRepository.save(updatedBook);
+      redisTemplate.delete("book:" + id);  // Invalidate immediately
+  }
+Next request will miss cache and reload fresh data from DB. Simple and reliable.
+
+3. Write-Through:
+Update DB and cache simultaneously. Zero staleness. Slightly slower writes.
+
+4. Cache versioning (for complex scenarios):
+Instead of invalidating, increment a version key:
+  String version = redisTemplate.opsForValue().get("book:version:" + id);
+  String cacheKey = "book:" + id + ":v" + version;
+When book is updated, increment version. Old cached key is never read again (becomes orphaned, expires naturally).
+
+My actual approach: Explicit deletion for book availability (critical), TTL for book descriptions (non-critical, 1-hour TTL acceptable).`
+      },
+      {
+        q: "How do you handle database migrations in a production Spring Boot app? Have you used Flyway or Liquibase?",
+        a: `Database migrations are versioned SQL scripts that evolve your schema over time in a controlled, repeatable way. Without migrations, managing schema changes across dev/staging/prod environments is a nightmare.
+
+In development, spring.jpa.hibernate.ddl-auto=update works — Hibernate auto-modifies the schema. But in PRODUCTION, this is DANGEROUS. It can:
+- Drop and recreate tables, losing data.
+- Make uncontrolled schema changes.
+
+Production approach — Flyway (what I recommend and have studied):
+
+How Flyway works:
+1. SQL scripts named by version: V1__create_books_table.sql, V2__add_location_column.sql, V3__create_requests_table.sql.
+2. Flyway tracks which scripts have been applied in a flyway_schema_history table.
+3. On app startup, Flyway compares applied versions to available scripts and runs only new ones.
+4. Once applied, scripts are NEVER modified — create new scripts for changes.
+
+Example:
+  -- V1__create_books_table.sql
+  CREATE TABLE books (id BIGINT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255) NOT NULL, ...);
+
+  -- V2__add_redis_cache_key.sql
+  ALTER TABLE books ADD COLUMN cache_key VARCHAR(100);
+
+In my Kubernetes setup: Flyway runs before the Spring Boot app starts (init container or on app startup). All 3 replicas of Book Service share the same DB — Flyway uses a DB lock to ensure only one instance runs migrations.
+
+My current projects use ddl-auto=validate (Hibernate checks schema matches entities but makes no changes). Flyway handles all schema evolution.`
+      },
+      {
+        q: "What is connection pooling? How does HikariCP work and how would you tune it for microservices under high load?",
+        a: `Connection pooling maintains a pool of open database connections that are reused by the application, rather than creating a new connection for every request.
+
+Why it matters:
+Creating a DB connection is expensive — TCP handshake, authentication, SSL — takes 100-500ms. If every API request creates a new connection, performance collapses under load.
+
+HikariCP (default in Spring Boot — fastest connection pool):
+- Maintains a pool of N pre-created connections.
+- When a request needs DB access, it borrows a connection from the pool.
+- When done, the connection is returned to the pool (not closed).
+- If all connections are in use, new requests wait (up to connectionTimeout) then fail with "Connection pool exhausted."
+
+My HikariCP configuration for each microservice:
+  spring.datasource.hikari.pool-name=BookServicePool
+  spring.datasource.hikari.maximum-pool-size=10      # Max connections to DB
+  spring.datasource.hikari.minimum-idle=3             # Keep 3 connections ready
+  spring.datasource.hikari.connection-timeout=30000   # Wait 30s before failing
+  spring.datasource.hikari.idle-timeout=600000        # Close idle connections after 10 min
+  spring.datasource.hikari.max-lifetime=1800000       # Recreate connections after 30 min
+
+Tuning for microservices:
+With 7 services each having pool-size=10 and MySQL's max_connections=151 (default), I'd hit the limit. Formula: (pool-size × number-of-services) < DB max_connections.
+My setup: 7 services × 10 connections = 70 < 151. Leaves room for DBA tools and monitoring.
+
+For high-traffic services (Book Service), I increased pool-size to 20. For low-traffic services (Notification), I kept it at 5. This way total = (20+10+10+5+5) = 50 connections — well within limits.`
+      }
+    ]
+  },
+  {
+    section: "SECTION 6: Docker & Kubernetes (Q61–Q72)",
+    qa: [
+      {
+        q: "Explain the difference between a Docker image, container, and volume. Walk me through your Dockerfile.",
+        a: `Docker Image: A read-only blueprint — like a class in OOP. Contains OS, JDK, app JAR, and configuration. Built from a Dockerfile. Stored in a registry (Docker Hub, AWS ECR).
+
+Docker Container: A running instance of an image — like an object from a class. Isolated process with its own filesystem, network, and resources. Ephemeral — data inside is lost when container stops.
+
+Docker Volume: Persistent storage attached to a container. Data survives container restarts. Used for databases (MySQL data directory) and any stateful data.
+
+My Dockerfile for Book Service (multi-stage build):
+  # Stage 1: Build
+  FROM maven:3.9-openjdk-17 AS builder
+  WORKDIR /app
+  COPY pom.xml .
+  RUN mvn dependency:go-offline  # Cache dependencies layer
+  COPY src ./src
+  RUN mvn clean package -DskipTests
+
+  # Stage 2: Run (lightweight)
+  FROM openjdk:17-jre-slim
+  WORKDIR /app
+  COPY --from=builder /app/target/book-service.jar app.jar
+  EXPOSE 8082
+  ENTRYPOINT ["java", "-XX:+UseZGC", "-Xms256m", "-Xmx512m", "-jar", "app.jar"]
+
+Key optimizations:
+- Multi-stage: Build stage uses 500MB Maven image. Final image uses 150MB JRE-only image. Production image is 200MB, not 700MB.
+- Dependency caching: COPY pom.xml + mvn dependency:go-offline runs before COPY src. If only source code changes, Docker reuses the cached dependency layer — much faster builds.
+- JVM flags: ZGC for low latency, heap limits to prevent OOM in constrained Kubernetes pods.`
+      },
+      {
+        q: "What is a multi-stage Docker build? How does it reduce image size?",
+        a: `A multi-stage build uses multiple FROM instructions in one Dockerfile. Each FROM starts a new stage. You copy only the artifacts you need from previous stages into the final image.
+
+Without multi-stage (bad):
+  FROM maven:3.9-openjdk-17
+  COPY . .
+  RUN mvn clean package
+  EXPOSE 8080
+  ENTRYPOINT ["java", "-jar", "target/app.jar"]
+This includes: Maven (~300MB) + full JDK (~200MB) + source code + test dependencies in your production image.
+Final image size: ~700MB. Security risk — attack surface includes build tools.
+
+With multi-stage (what I use):
+  # Stage 1: Build (throwaway)
+  FROM maven:3.9-openjdk-17 AS builder
+  WORKDIR /app
+  COPY pom.xml .
+  RUN mvn dependency:go-offline
+  COPY src ./src
+  RUN mvn clean package -DskipTests
+
+  # Stage 2: Run (final image)
+  FROM eclipse-temurin:17-jre-alpine
+  COPY --from=builder /app/target/app.jar app.jar
+  EXPOSE 8080
+  ENTRYPOINT ["java", "-jar", "app.jar"]
+
+Final image contains only: Alpine Linux (~5MB) + JRE (~85MB) + JAR (~50MB) = ~140MB.
+That's an 80% size reduction from 700MB to 140MB.
+
+Benefits:
+1. Faster deployment: Smaller images pull and push faster — important for CI/CD and Kubernetes scaling.
+2. Less storage: My 7-service platform saves ~3.5GB of registry storage.
+3. Better security: No Maven, no JDK compiler, no source code in production. Smaller attack surface.
+4. Faster Kubernetes pod startup: Smaller image = faster pull on new nodes.`
+      },
+      {
+        q: "Explain Docker Compose — how did you use it to run all 7 services locally before moving to Kubernetes?",
+        a: `Docker Compose is a tool for defining and running multi-container applications. You describe all services, networks, and volumes in a single docker-compose.yml file and start everything with one command.
+
+My docker-compose.yml (simplified) for local development:
+  version: '3.8'
+  services:
+    mysql:
+      image: mysql:8.0
+      environment:
+        MYSQL_ROOT_PASSWORD: rootpass
+        MYSQL_DATABASE: bookdb
+      volumes:
+        - mysql_data:/var/lib/mysql
+      ports:
+        - "3306:3306"
+
+    redis:
+      image: redis:7-alpine
+      ports:
+        - "6379:6379"
+
+    kafka:
+      image: confluentinc/cp-kafka:latest
+      environment:
+        KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      depends_on:
+        - zookeeper
+
+    eureka-service:
+      build: ./eureka-service
+      ports:
+        - "8761:8761"
+
+    auth-service:
+      build: ./auth-service
+      environment:
+        SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bookdb
+        EUREKA_URI: http://eureka-service:8761/eureka/
+      depends_on:
+        - mysql
+        - eureka-service
+
+    book-service:
+      build: ./book-service
+      depends_on:
+        - mysql
+        - redis
+        - kafka
+        - eureka-service
+
+  volumes:
+    mysql_data:
+
+Command: docker-compose up --build → All 7 services + MySQL + Redis + Kafka start with one command.
+
+Benefits for development: Consistent environment across team, no "works on my machine" problems, easy to reset (docker-compose down -v).`
+      },
+      {
+        q: "What is Kubernetes and how does it differ from Docker Swarm? Why did you choose K3s?",
+        a: `Kubernetes (K8s): An open-source container orchestration platform. It automates deployment, scaling, health monitoring, self-healing, and rolling updates of containerized applications. Industry standard — backed by Google, used by every major cloud provider.
+
+Docker Swarm: Docker's own simpler orchestration tool. Easy to set up, built into Docker. Good for simple deployments.
+
+Key differences:
+- Complexity: Swarm is simpler. K8s has more components but more features.
+- Ecosystem: K8s has rich ecosystem — Helm charts, Operators, service meshes. Swarm is limited.
+- Scaling: K8s has Horizontal Pod Autoscaler, custom metrics. Swarm scaling is manual.
+- Adoption: K8s is the industry standard. AWS EKS, Google GKE, Azure AKS all run Kubernetes. Swarm is declining.
+- Learning curve: K8s is harder to learn — I chose it deliberately to build relevant skills.
+
+Why K3s specifically:
+K3s is a lightweight Kubernetes distribution by Rancher, designed for resource-constrained environments.
+
+Regular K8s on a single EC2 t2.medium (2 vCPU, 4GB RAM):
+- K8s control plane alone uses ~1.5GB RAM. Almost no room for my 7 services.
+
+K3s on the same instance:
+- K3s control plane uses ~200-300MB RAM.
+- All 7 services fit comfortably in 4GB.
+- Simpler installation: One command (curl -sfL https://get.k3s.io | sh -).
+- Full K8s API compatibility — same kubectl commands, same YAML manifests.
+- Production-ready: Used by IoT edge computing, CI environments, and small clusters.`
+      },
+      {
+        q: "Explain Kubernetes core objects — Pod, Deployment, Service, Ingress, ConfigMap, Secret, PVC. How did you use each?",
+        a: `Pod: Smallest deployable unit. One or more containers that share network and storage. I never create Pods directly — Deployments manage them.
+
+Deployment: Declares desired state — "run 2 replicas of book-service:v1.2". Kubernetes ensures this is maintained. Handles rolling updates and rollbacks.
+  My usage: Each of my 7 services has a Deployment with 1-2 replicas, resource limits, and liveness/readiness probes.
+
+Service: Stable network endpoint for a Deployment. Pods have ephemeral IPs — Services provide a fixed DNS name (ClusterIP, NodePort, or LoadBalancer).
+  My usage: Each service has a ClusterIP Service. Gateway Service uses NodePort to expose port 30080 externally on the EC2 instance.
+
+Ingress: HTTP routing rules — directs external traffic to the right Service based on path/host. Acts as a reverse proxy.
+  My usage: Nginx Ingress Controller routes /api/* to the API Gateway Service and / to the React Frontend Service.
+
+ConfigMap: Non-sensitive configuration as key-value pairs. Mounted as environment variables or files.
+  My usage: Database URLs, Eureka addresses, Redis host — all in ConfigMaps per service.
+
+Secret: Sensitive data (base64 encoded, encrypted at rest in etcd). Never in Git.
+  My usage: JWT secret key, MySQL root password, AWS credentials.
+
+PersistentVolumeClaim (PVC): Requests persistent storage that survives pod restarts.
+  My usage: MySQL and Redis pods have PVCs — database files survive pod restarts and rolling updates. Without PVC, all data would be lost when a pod is killed.`
+      },
+      {
+        q: "What is the difference between ClusterIP, NodePort, and LoadBalancer services?",
+        a: `Kubernetes Services expose Pods to network traffic. Three main types:
+
+ClusterIP (default — internal only):
+  type: ClusterIP
+  port: 8080
+- Accessible only within the Kubernetes cluster.
+- Assigns a stable internal IP and DNS name (book-service:8082).
+- My usage: All 7 microservices use ClusterIP. They talk to each other internally via service names. The outside world can't reach them directly — security by design.
+
+NodePort (external access via node IP):
+  type: NodePort
+  port: 8080
+  nodePort: 30080  # Range 30000-32767
+- Opens a port on EVERY node (EC2 instance) in the cluster.
+- External traffic hits EC2's public IP:30080 → forwarded to the service.
+- My usage: API Gateway is exposed as NodePort 30080. My React app (and external users) call http://ec2-ip:30080/api/...
+
+LoadBalancer (cloud managed — production recommendation):
+  type: LoadBalancer
+- Creates a cloud load balancer (AWS ELB, GCP LB) automatically.
+- Assigns a public IP. Best for production.
+- My usage: I didn't use LoadBalancer type (cost concern for a personal project). Instead I used NodePort + Nginx Ingress as a cost-effective alternative.
+
+My actual setup:
+  External → EC2 Public IP:80 → Nginx Ingress Controller (NodePort) → Routes to API Gateway (ClusterIP) or Frontend (ClusterIP)
+One Nginx Ingress handles all external routing — both API and React frontend — with proper path-based routing.`
+      },
+      {
+        q: "Explain Kubernetes liveness and readiness probes. How did you configure them?",
+        a: `Kubernetes probes are health checks that Kubernetes runs to determine if a pod is alive and ready to serve traffic.
+
+Liveness Probe: "Is this container still running correctly? Should it be restarted?"
+- If liveness probe fails repeatedly, Kubernetes KILLS and RESTARTS the pod.
+- Use case: Detect deadlocks, frozen processes, infinite loops — app is running but stuck.
+
+Readiness Probe: "Is this container ready to receive traffic?"
+- If readiness probe fails, Kubernetes removes the pod from the Service's endpoint list — no traffic is sent to it. Pod is NOT restarted.
+- Use case: App is starting up (loading cache, connecting to DB). Pod is alive but not ready yet.
+
+My configuration for Book Service:
+  livenessProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8080
+    initialDelaySeconds: 90    # Give app 90 sec to start before first check
+    periodSeconds: 15           # Check every 15 seconds
+    failureThreshold: 3         # Restart after 3 consecutive failures
+
+  readinessProbe:
+    httpGet:
+      path: /actuator/health/readiness
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3
+
+Spring Boot Actuator exposes two separate endpoints:
+- /actuator/health/liveness: Returns UP if app JVM is running (simple check).
+- /actuator/health/readiness: Returns UP only when app is fully ready — DB connected, Redis connected, Kafka consumer started, cache warmed up.
+
+Real scenario: During a rolling update of Book Service, new pods become "alive" (liveness UP) in 30 seconds but "ready" (readiness UP) in 60 seconds after cache warming. Kubernetes only sends traffic after readiness is UP — zero user impact during deployments.`
+      },
+      {
+        q: "What are rolling updates and blue-green deployments in Kubernetes?",
+        a: `Rolling Updates (what I use):
+Kubernetes gradually replaces old pods with new ones — one at a time (or in configured batches). At no point are all old pods down — some always serve traffic.
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0   # Never have 0 running pods — 100% availability
+      maxSurge: 1         # Can temporarily have 1 extra pod during update
+
+Process with 2 replicas of Book Service (v1 → v2):
+1. Kubernetes starts 1 new v2 pod (now 3 total: 2 v1, 1 v2).
+2. v2 pod passes readiness probe → Kubernetes sends it traffic.
+3. Kubernetes terminates 1 v1 pod (back to 2: 1 v1, 1 v2).
+4. Kubernetes starts 2nd v2 pod. Readiness passes. Terminates last v1 pod.
+5. Done — 2 v2 pods running. Zero downtime.
+
+Rollback: kubectl rollout undo deployment/book-service → instant rollback to previous version.
+
+Blue-Green Deployment:
+Run TWO complete environments (Blue = current prod, Green = new version). Switch traffic from Blue to Green all at once by updating the Service selector.
+- Pros: Instant rollback (switch back to Blue), no mixed versions in production.
+- Cons: Requires double the resources (2 full environments).
+
+My choice: Rolling updates for all services. They're resource-efficient and Kubernetes handles them automatically in my CI/CD pipeline. Blue-green would be ideal for major version changes but too expensive for my single EC2 setup.`
+      },
+      {
+        q: "How do Kubernetes ConfigMaps and Secrets differ? How did you manage credentials securely?",
+        a: `ConfigMap: Stores non-sensitive configuration data as key-value pairs. Plain text. Safe to view in kubectl. Stored in etcd unencrypted.
+Secret: Stores sensitive data. Base64 encoded (NOT encrypted by default, but can be encrypted at rest with KMS). Should never be in Git.
+
+How I use them:
+
+ConfigMap for each service:
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: book-service-config
+  data:
+    SPRING_DATASOURCE_URL: "jdbc:mysql://mysql-service:3306/bookdb"
+    REDIS_HOST: "redis-service"
+    EUREKA_URI: "http://eureka-service:8761/eureka/"
+    SPRING_PROFILES_ACTIVE: "prod"
+
+Secret for credentials:
+  kubectl create secret generic app-secrets \
+    --from-literal=DB_PASSWORD=MySecurePass123 \
+    --from-literal=JWT_SECRET=myJwtSecretKey256bits \
+    --from-literal=AWS_SECRET_ACCESS_KEY=xxxxx
+  (Secrets are created via kubectl, never stored in Git)
+
+Referencing in Deployment:
+  env:
+    - name: SPRING_DATASOURCE_URL
+      valueFrom:
+        configMapKeyRef:
+          name: book-service-config
+          key: SPRING_DATASOURCE_URL
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: DB_PASSWORD
+
+Security practices I follow:
+1. Never commit Secrets to Git — use .gitignore for any sensitive files.
+2. Namespace isolation: Each service's secrets are in the same Kubernetes namespace, inaccessible to other namespaces.
+3. RBAC: Kubernetes Role-Based Access Control limits which pods can read which secrets.
+4. Rotation: JWT secrets can be rotated by updating the Secret object and restarting pods — no image rebuild needed.`
+      },
+      {
+        q: "What is a PersistentVolumeClaim (PVC)? Which services needed persistent storage?",
+        a: `By default, when a Kubernetes pod is deleted or restarted, ALL data inside it is lost. This is fine for stateless apps (Spring Boot services) but catastrophic for databases.
+
+PersistentVolume (PV): The actual storage resource — a disk on the host, an AWS EBS volume, NFS share, etc.
+PersistentVolumeClaim (PVC): A request for storage by a pod. "Give me 10GB of storage." Kubernetes finds a matching PV and binds them.
+
+Which services in my platform need PVCs:
+
+1. MySQL (critical):
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: mysql-pvc
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+  MySQL pod mounts this at /var/lib/mysql. All book, user, and request data survives pod restarts, node reboots, and rolling updates.
+
+2. Redis (important):
+  storage: 2Gi
+  Redis is an in-memory cache but I also enable Redis persistence (RDB snapshots). If the Redis pod restarts, it reloads from disk instead of starting empty. Prevents a cold cache after restarts.
+
+3. Kafka (for durability):
+  storage: 5Gi
+  Kafka logs (event data retained for 7 days) mounted on persistent storage. Events survive broker restarts.
+
+Services WITHOUT PVCs (stateless):
+All 7 Spring Boot microservices (Auth, Book, Request, Notification, Gateway, Eureka) — they're stateless. Their pods can be created, destroyed, and scaled freely. All state is in MySQL/Redis/Kafka, not in the app pods.`
+      },
+      {
+        q: "How does Kubernetes handle resource limits and requests?",
+        a: `Kubernetes uses resource requests and limits to manage CPU and memory allocation across pods.
+
+Requests: The minimum guaranteed resources a pod needs. Kubernetes uses requests for scheduling — it only places a pod on a node that has enough available.
+
+Limits: The maximum resources a pod can use. If it exceeds the memory limit, Kubernetes kills it (OOMKilled). If it exceeds the CPU limit, it's throttled (not killed).
+
+My configuration for Book Service:
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"      # 0.25 CPU cores
+    limits:
+      memory: "512Mi"
+      cpu: "500m"      # 0.5 CPU cores
+
+Why this matters:
+Without limits, one misbehaving service could consume all node resources and starve others. In my single EC2 instance running all 7 services, this is critical.
+
+My resource allocation (on 4GB RAM EC2 t2.medium):
+  Auth Service:         256Mi-512Mi
+  Book Service:         256Mi-512Mi (most complex)
+  Request Service:      128Mi-256Mi
+  Notification Service: 128Mi-256Mi
+  API Gateway:          256Mi-512Mi
+  Eureka:               128Mi-256Mi
+  MySQL:                512Mi-1Gi
+  Redis:                128Mi-256Mi
+  Kafka:                512Mi-1Gi
+  Total requests: ~2.3Gi, Total limits: ~4.5Gi (limits can exceed physical, requests cannot)
+
+Namespace resource quotas: I set ResourceQuota objects per namespace to prevent any namespace from using more than its share.`
+      },
+      {
+        q: "How does Kubernetes Ingress work? How did you configure routing for 7 services on a single EC2 instance?",
+        a: `Kubernetes Ingress is an API object that manages external HTTP/HTTPS access to services within a cluster. It acts as a smart reverse proxy.
+
+Without Ingress: Each service needs its own NodePort (separate port like 30080, 30081, 30082...). Users would call different ports. Messy, hard to manage SSL.
+
+With Ingress: Single entry point on port 80/443. Traffic is routed based on path or hostname.
+
+My Nginx Ingress configuration:
+  apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    name: book-platform-ingress
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+  spec:
+    rules:
+    - http:
+        paths:
+        - path: /api
+          pathType: Prefix
+          backend:
+            service:
+              name: api-gateway-service
+              port:
+                number: 8080
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: frontend-service
+              port:
+                number: 80
+
+Traffic flow:
+  User Browser → EC2 Public IP:80 → Nginx Ingress Controller (NodePort 80)
+  → /api/* → API Gateway (ClusterIP) → routes to Book/Auth/Request services
+  → /* → React Frontend (ClusterIP, served by Nginx container)
+
+Nginx Ingress Controller is installed via K3s's built-in Traefik (or I install Nginx separately). It runs as a pod in the cluster and watches for Ingress resources.
+
+Result: One public IP, one port (80). All 7 services accessible through clean URL paths. No port numbers in URLs for end users.`
+      }
+    ]
+  },
+  {
+    section: "SECTION 7: CI/CD, DevOps & AWS (Q73–Q84)",
+    qa: [
+      {
+        q: "Walk me through your full CI/CD pipeline — from a git push to a running container on AWS EC2.",
+        a: `My CI/CD pipeline reduces deployment time to under 5 minutes. Here's the exact flow:
+
+Step 1 — Developer pushes code to GitHub (main branch).
+
+Step 2 — GitHub Actions triggers (webhook):
+  .github/workflows/ci.yml runs:
+  - Checkout code
+  - Set up JDK 17
+  - Run mvn clean test (unit tests)
+  - If tests pass → run mvn clean package (build JAR)
+  - Build Docker image: docker build -t book-service:${{ github.sha }} .
+  - Push to Docker Hub (or AWS ECR): docker push srujannadipi/book-service:${{ github.sha }}
+
+Step 3 — GitHub Actions triggers Jenkins via webhook (or Jenkins polls GitHub):
+
+Step 4 — Jenkins pipeline (Jenkinsfile):
+  pipeline {
+    stages {
+      stage('Pull Image') {
+        steps { sh "docker pull srujannadipi/book-service:${BUILD_TAG}" }
+      }
+      stage('Deploy to K8s') {
+        steps {
+          sh "kubectl set image deployment/book-service book-service=srujannadipi/book-service:${BUILD_TAG}"
+          sh "kubectl rollout status deployment/book-service --timeout=120s"
+        }
+      }
+      stage('Verify') {
+        steps { sh "curl -f http://localhost:8080/actuator/health || exit 1" }
+      }
+    }
+    post {
+      failure { sh "kubectl rollout undo deployment/book-service" }  // Auto rollback
+    }
+  }
+
+Step 5 — Kubernetes performs rolling update on EC2.
+Step 6 — Health check passes → deployment complete.
+
+Total time: Build(90s) + Tests(60s) + Docker push(30s) + K8s deploy(90s) = ~5 minutes.`
+      },
+      {
+        q: "What is the difference between Jenkins and GitHub Actions? Why did you use both?",
+        a: `GitHub Actions:
+- Built into GitHub — zero infrastructure setup.
+- Event-driven: triggers on push, PR, tag, schedule.
+- Runs on GitHub-hosted runners (free tier: 2000 minutes/month).
+- YAML-based workflows in .github/workflows/.
+- Great for: Build, test, code quality, Docker image creation — things that don't need access to your servers.
+
+Jenkins:
+- Self-hosted CI/CD server. Full control over environment, plugins, and integrations.
+- Runs on your own server (my EC2 instance).
+- Rich plugin ecosystem (2000+ plugins).
+- Can SSH into other servers, run kubectl, access internal network.
+- Great for: Deployment to your own infrastructure, complex orchestration, secure secrets management.
+
+Why I used BOTH — clear separation of responsibilities:
+
+GitHub Actions (Build Phase — runs in cloud):
+- Triggered by git push
+- Runs tests
+- Builds JAR
+- Builds and pushes Docker image to registry
+- No access to my private EC2 server needed here
+
+Jenkins (Deploy Phase — runs on my EC2):
+- Triggered after GitHub Actions completes
+- Has kubectl access to the Kubernetes cluster (running on same EC2)
+- Pulls the new Docker image
+- Runs kubectl rollout
+- Verifies health
+- Rolls back on failure
+
+This separation means: GitHub Actions handles code quality in a free cloud environment. Jenkins handles the actual deployment with full server access. Secure and efficient.`
+      },
+      {
+        q: "How do you handle secrets in a CI/CD pipeline? How do you prevent API keys from being exposed?",
+        a: `Exposing secrets in CI/CD is a critical security risk. I follow these practices:
+
+1. GitHub Secrets (for GitHub Actions):
+   - Never hardcode secrets in YAML files.
+   - Store in GitHub repository Settings → Secrets and Variables → Actions.
+   - Reference as: ${{ secrets.DOCKER_PASSWORD }}, ${{ secrets.AWS_SECRET_KEY }}.
+   - Secrets are masked in logs — if accidentally printed, GitHub shows "***".
+   - Scoped to repository, not visible to forked repos.
+
+2. Jenkins Credentials Store:
+   - Jenkins has a built-in credentials manager (Manage Jenkins → Credentials).
+   - Store DB passwords, kubeconfig file, Docker Hub credentials.
+   - Reference in Jenkinsfile:
+     withCredentials([string(credentialsId: 'jwt-secret', variable: 'JWT_SECRET')]) {
+         sh "kubectl create secret generic jwt --from-literal=JWT_SECRET=${JWT_SECRET}"
+     }
+   - Credentials are injected at runtime, never written to disk.
+
+3. Never in Git (golden rule):
+   - .gitignore: application-prod.properties, .env, *.pem, kubeconfig.
+   - Pre-commit hooks: Use git-secrets or detect-secrets to scan for accidentally committed secrets.
+
+4. Kubernetes Secrets (for runtime):
+   - As discussed, credentials are stored as K8s Secrets, not in application config files or Docker images.
+
+5. Docker image scanning:
+   - Trivy scans Docker images for embedded secrets before pushing to registry.
+
+5. Audit: Regularly rotate credentials. AWS IAM roles with minimum permissions (principle of least privilege).`
+      },
+      {
+        q: "What is a Jenkinsfile and how does a declarative pipeline differ from a scripted pipeline?",
+        a: `A Jenkinsfile is a text file stored in your Git repository that defines your Jenkins CI/CD pipeline as code. It lives alongside your application code — infrastructure as code.
+
+Two pipeline syntaxes:
+
+Declarative Pipeline (what I use — recommended):
+  pipeline {
+    agent any
+    environment {
+      IMAGE_NAME = "book-service"
+      K8S_DEPLOYMENT = "book-service-deployment"
+    }
+    stages {
+      stage('Test') {
+        steps { sh 'mvn clean test' }
+      }
+      stage('Build') {
+        steps { sh 'mvn clean package -DskipTests' }
+      }
+      stage('Docker Build & Push') {
+        steps {
+          withCredentials([usernamePassword(credentialsId: 'docker-hub', ...)]) {
+            sh 'docker build -t srujan/${IMAGE_NAME}:${BUILD_NUMBER} .'
+            sh 'docker push srujan/${IMAGE_NAME}:${BUILD_NUMBER}'
+          }
+        }
+      }
+      stage('Deploy') {
+        steps {
+          sh "kubectl set image deployment/${K8S_DEPLOYMENT} ${IMAGE_NAME}=srujan/${IMAGE_NAME}:${BUILD_NUMBER}"
+          sh "kubectl rollout status deployment/${K8S_DEPLOYMENT}"
+        }
+      }
+    }
+    post {
+      failure { sh "kubectl rollout undo deployment/${K8S_DEPLOYMENT}" }
+      success { echo "Deployment successful! Build ${BUILD_NUMBER}" }
+    }
+  }
+
+Scripted Pipeline:
+  node {
+    stage('Test') { sh 'mvn test' }
+    stage('Build') { sh 'mvn package' }
+  }
+More flexible (full Groovy). Used before declarative syntax existed. Harder to read, less standardized.
+
+My choice: Declarative pipeline. Cleaner, enforces structure, better IDE support, built-in post blocks for notifications and rollbacks.`
+      },
+      {
+        q: "Explain AWS EC2 — instance types, security groups, key pairs. How did you configure EC2 for Kubernetes?",
+        a: `AWS EC2 (Elastic Compute Cloud) provides virtual servers in the cloud.
+
+Instance Types:
+- t2.micro: 1 vCPU, 1GB RAM. Free tier. Good for tiny apps.
+- t2.medium: 2 vCPU, 4GB RAM. What I use — enough for K3s + 7 services.
+- t3.medium: Burstable, better price/performance than t2 for variable workloads.
+- m5.large: Production-grade, consistent performance. 2 vCPU, 8GB.
+- Naming convention: family (t=burstable, m=general, c=compute, r=memory) + generation + size.
+
+Key Pairs:
+- SSH key pair for secure access. Private key (.pem) on my laptop, public key on EC2.
+- Access: ssh -i my-key.pem ubuntu@ec2-public-ip
+- Never share the .pem file.
+
+Security Groups:
+- Virtual firewall for EC2. I-inbound and outbound rules.
+
+My Security Group configuration:
+  Inbound rules:
+  - Port 22 (SSH): My IP only — not open to world.
+  - Port 80 (HTTP): 0.0.0.0/0 — Nginx Ingress.
+  - Port 443 (HTTPS): 0.0.0.0/0 — SSL.
+  - Port 30080 (NodePort): 0.0.0.0/0 — API Gateway access.
+  - Port 6443 (K3s API): My IP only — kubectl access.
+
+My EC2 setup for K3s:
+  # Install K3s (single command!)
+  curl -sfL https://get.k3s.io | sh -
+  # Export kubeconfig
+  export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+  # Verify
+  kubectl get nodes  # Shows: ip-xxx STATUS Ready
+Then deploy all services via kubectl apply -f k8s/ directory.`
+      },
+      {
+        q: "What is AWS S3? How did you integrate it with your Book Sharing Platform? Did you use pre-signed URLs?",
+        a: `AWS S3 (Simple Storage Service) is object storage for any type of file — images, videos, backups, static files. Infinitely scalable, 99.999999999% (11 nines) durability, pay per GB stored.
+
+My S3 integration in the Book Sharing Platform:
+Used for storing book cover images. Books have a cover_image_s3_url field that points to the S3 object.
+
+Upload flow (when a user adds a book with cover image):
+  @Service
+  public class S3Service {
+      private final AmazonS3 s3Client;
+
+      public String uploadBookCover(MultipartFile file, Long bookId) {
+          String key = "book-covers/" + bookId + "/" + UUID.randomUUID() + "-" + file.getOriginalFilename();
+          s3Client.putObject(new PutObjectRequest(
+              "book-platform-bucket",
+              key,
+              file.getInputStream(),
+              new ObjectMetadata()
+          ));
+          return "https://book-platform-bucket.s3.amazonaws.com/" + key;
+      }
+  }
+
+Pre-signed URLs (yes, I used them):
+Instead of making the S3 bucket fully public (security risk), I generate time-limited pre-signed URLs for image access.
+  public String generatePresignedUrl(String key) {
+      Date expiry = new Date(System.currentTimeMillis() + 3600000); // 1 hour
+      GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, key)
+          .withExpiration(expiry);
+      return s3Client.generatePresignedUrl(request).toString();
+  }
+The URL is valid for 1 hour. After that, it's invalid — expired links don't expose data.
+
+AWS credentials are stored as Kubernetes Secrets, injected as environment variables — never hardcoded in code.`
+      },
+      {
+        q: "What is AWS RDS vs running MySQL on EC2? What are the trade-offs?",
+        a: `AWS RDS (Relational Database Service): Fully managed MySQL (or PostgreSQL, etc.) in the cloud. AWS handles backups, patching, failover, monitoring.
+
+MySQL on EC2: You install and manage MySQL yourself on a virtual machine. Full control, full responsibility.
+
+Comparison:
+
+RDS Pros:
+- Automated backups (daily snapshots, point-in-time recovery).
+- Multi-AZ failover — if primary DB fails, standby in another availability zone takes over in 1-2 minutes. 99.95% availability SLA.
+- Read replicas for scaling reads.
+- Automatic minor version patching.
+- CloudWatch monitoring built in.
+- No sysadmin work.
+
+RDS Cons:
+- More expensive (you pay for managed service premium).
+- Less control (can't SSH into the DB server).
+
+MySQL on EC2 Pros:
+- Full control — custom configurations, plugins.
+- Cheaper (just EC2 + storage cost).
+- Can run on the same instance as your app (what I do).
+
+MySQL on EC2 Cons:
+- You manage backups, patching, failover manually.
+- If EC2 fails, DB fails (unless you set up replication yourself).
+
+My choice: MySQL on EC2 (same K3s cluster, as a StatefulSet with PVC).
+Reason: Cost. For a personal project/portfolio, RDS adds ~$15-30/month. My approach costs $0 extra (uses the EC2 I'm already paying for).
+
+For a production company system, I'd always recommend RDS Multi-AZ — the peace of mind and automated failover are worth the cost.`
+      },
+      {
+        q: "What is AWS Lambda and API Gateway? Have you used serverless? What are cold start limitations?",
+        a: `AWS Lambda: Serverless compute. You upload code (Java, Node.js, Python), and AWS runs it on demand. You pay only per invocation (first 1 million requests/month free). No servers to manage.
+
+AWS API Gateway: Manages HTTP endpoints that trigger Lambda functions (or other services). Handles routing, auth, rate limiting, SSL.
+
+Serverless use cases:
+- Event-driven processing (S3 upload → resize image)
+- Webhooks
+- Scheduled tasks (run every night)
+- APIs with unpredictable/sporadic traffic
+
+I studied and experimented with Lambda (it's in my resume under AWS Lambda). I used it for:
+- A thumbnail generation Lambda: When a book cover is uploaded to S3, an S3 event triggers a Lambda that resizes the image and stores the thumbnail back in S3.
+- A scheduled cleanup Lambda: Removes expired pre-signed URL references from DB every night.
+
+Cold Start Problem — Lambda's main limitation:
+When a Lambda function hasn't been invoked recently (or is scaling to handle more traffic), AWS needs to spin up a new container, load the JVM (for Java), load your JAR, and initialize Spring context. This can take 3-10 SECONDS for a Spring Boot Lambda — unacceptable for user-facing APIs.
+
+Solutions:
+1. Provisioned Concurrency: Keep N Lambda instances always warm. Costs money.
+2. Scheduled warming: Ping the Lambda every 5 minutes.
+3. Use Lambda for async tasks only (S3 processing, notifications) — not synchronous user-facing APIs.
+4. Use Spring Cloud Function + GraalVM native image → cold start under 100ms (complex to set up).`
+      },
+      {
+        q: "Explain Prometheus and Grafana. What metrics did you collect and what dashboards did you build?",
+        a: `Prometheus: Open-source monitoring system. It "scrapes" (pulls) metrics from your services at regular intervals and stores them as time-series data. Uses PromQL for querying.
+
+Grafana: Visualization tool. Connects to Prometheus (and other data sources) and displays metrics as dashboards with graphs, alerts, and gauges.
+
+My monitoring stack setup in K3s:
+
+1. Spring Boot Actuator + Micrometer:
+   Each service exposes /actuator/prometheus endpoint with metrics:
+   - http_server_requests_total (request count by endpoint, status code)
+   - jvm_memory_used_bytes (heap usage)
+   - hikaricp_connections_active (DB pool usage)
+   - kafka_consumer_fetch_manager_records_lag (consumer lag)
+
+2. Prometheus Config:
+   prometheus.yml scrape_configs:
+   - job_name: 'book-service'
+     static_configs:
+       - targets: ['book-service:8080']
+     metrics_path: /actuator/prometheus
+     scrape_interval: 15s
+
+3. Grafana Dashboards I built:
+   - Service Health Dashboard: Request rate, error rate (5xx %), response time percentiles (p50, p95, p99) for each service.
+   - JVM Dashboard: Heap usage, GC pause time, thread count per service.
+   - Kafka Consumer Lag: Real-time consumer lag per topic/partition.
+   - K8s Resource Dashboard: CPU/memory usage per pod.
+
+4. Alerting rules in Grafana:
+   - Error rate > 5% for 2 minutes → alert
+   - Kafka consumer lag > 100 → alert
+   - Pod memory > 80% → alert
+   - Any pod in CrashLoopBackOff → alert
+
+This observability stack turned my cluster from a "black box" to a fully visible system — I could immediately see which service was causing issues.`
+      },
+      {
+        q: "What is the difference between horizontal scaling and vertical scaling? How does Kubernetes HPA work?",
+        a: `Vertical Scaling (Scale Up): Add more resources to existing machines — more CPU, more RAM.
+- Simple to implement.
+- Has limits (biggest EC2 instance is finite).
+- Usually requires downtime to resize.
+- More expensive at high scale.
+
+Horizontal Scaling (Scale Out): Add more instances/pods running the same workload.
+- No theoretical limit — add 100 more pods.
+- No downtime — new pods added alongside existing ones.
+- Requires stateless application design (any pod can handle any request).
+- This is what microservices and Kubernetes are designed for.
+
+Kubernetes HPA (Horizontal Pod Autoscaler):
+HPA automatically scales the number of pod replicas based on observed metrics (CPU, memory, or custom metrics).
+
+  apiVersion: autoscaling/v2
+  kind: HorizontalPodAutoscaler
+  metadata:
+    name: book-service-hpa
+  spec:
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: book-service
+    minReplicas: 1
+    maxReplicas: 5
+    metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70  # Scale up when avg CPU > 70%
+
+HPA behavior: Every 15 seconds, HPA checks metrics. If Book Service CPU > 70% → add a replica. If CPU drops below 70% after 5 minutes → remove a replica (scale down). Between 1 and 5 replicas automatically.
+
+My setup: I configured HPA for the Book Service (most traffic) and API Gateway. During my load test (500 concurrent requests), pods scaled from 1 to 3 automatically.`
+      },
+      {
+        q: "How would you reduce the cost of your AWS deployment while maintaining availability?",
+        a: `Cost optimization is a real engineering concern. Here's how I think about it:
+
+My current setup (cost-optimized already):
+- Single t2.medium EC2 ($35/month): Runs K3s with all 7 services. Much cheaper than running 7 separate EC2s or EKS cluster ($72/month).
+- MySQL on same EC2: Saves ~$25/month vs RDS db.t3.micro.
+- Single Kafka on same cluster: vs MSK (Managed Kafka ~$90/month).
+- S3 for storage: ~$0.023/GB — cheap for book cover images.
+
+Further optimizations I'd apply:
+
+1. Spot Instances (60-90% cheaper than on-demand):
+   AWS Spot instances can be terminated with 2-minute warning. For stateless services (all 7 microservices), this is safe — Kubernetes restarts pods on another instance. MySQL/Kafka should stay on on-demand.
+   Savings: $35/month → ~$7/month for app pods.
+
+2. Reserved Instances (1-year commitment = 40% discount):
+   For the database EC2 or a stable production instance, commit for 1 year.
+
+3. Right-sizing:
+   Use Prometheus metrics to check actual CPU/memory usage. If services use only 10% of allocated resources, downsize to t2.small.
+
+4. S3 lifecycle policies:
+   Old book cover images (books deleted 6+ months ago) → move to S3 Glacier (90% cheaper storage).
+
+5. CloudFront CDN:
+   Serve React frontend and static assets via CloudFront. Reduce EC2 bandwidth costs and speed up global access.
+
+6. Lambda for batch jobs:
+   Scheduled cleanup tasks → Lambda (free tier). Removes need for always-on worker pods.`
+      },
+      {
+        q: "What is Infrastructure as Code (IaC)? Have you used Terraform or CloudFormation?",
+        a: `Infrastructure as Code (IaC) means defining and managing infrastructure (servers, networks, databases) through code/configuration files rather than manual console clicks.
+
+Benefits:
+- Reproducible: Run the same code → get the same infrastructure every time.
+- Version controlled: Infrastructure changes tracked in Git like application code.
+- Team collaboration: Review infrastructure changes via pull requests.
+- Fast provisioning: Create entire environment in minutes, not hours.
+
+Tools:
+- Terraform: Cloud-agnostic (works with AWS, GCP, Azure, Kubernetes). Uses HCL language. Most popular IaC tool.
+- AWS CloudFormation: AWS-specific IaC. Uses YAML/JSON. Tightly integrated with AWS services.
+- Pulumi: Like Terraform but uses real programming languages (Python, TypeScript).
+
+My current state: My Kubernetes manifests (Deployment, Service, ConfigMap, Ingress YAML files) ARE infrastructure as code — they're checked into Git and kubectl apply deploys them reproducibly.
+
+For AWS infrastructure, I've studied Terraform and would implement it as follows:
+  # EC2 instance
+  resource "aws_instance" "k3s_server" {
+    ami           = "ami-0c55b159cbfafe1f0"  # Ubuntu 22.04
+    instance_type = "t2.medium"
+    key_name      = "my-key"
+    vpc_security_group_ids = [aws_security_group.k3s_sg.id]
+    user_data = file("k3s-install.sh")  # Auto-install K3s on boot
+  }
+  # S3 bucket for book covers
+  resource "aws_s3_bucket" "book_covers" {
+    bucket = "book-platform-covers"
+  }
+
+Currently, I create the EC2 manually (through AWS console) and deploy K3s on it. Terraform is my next learning goal to fully automate infrastructure provisioning.`
+      }
+    ]
+  },
+  {
+    section: "SECTION 8: React.js & Frontend (Q85–Q92)",
+    qa: [
+      {
+        q: "Explain React's virtual DOM and reconciliation algorithm.",
+        a: `Virtual DOM: React maintains a lightweight JavaScript copy of the real DOM (the browser's page structure). When state changes, React updates the Virtual DOM first, then compares it to the previous Virtual DOM, and updates only what changed in the real DOM.
+
+Why this matters: Directly manipulating the real DOM is slow. Every change triggers browser reflow/repaint. React batches and minimizes real DOM updates.
+
+Reconciliation Algorithm (React Fiber):
+When state changes, React:
+1. Creates a new Virtual DOM tree.
+2. Diffs the new tree against the previous one (diffing).
+3. Finds the minimum set of changes needed.
+4. Applies only those changes to the real DOM (patching).
+
+Key diffing rules:
+- Different element types → remove old, create new.
+- Same element type → update attributes.
+- Lists use key prop for efficient comparison: if items are reordered, React uses keys to match elements. Without keys, React rebuilds the entire list.
+
+Real example from my project:
+In my book listing page, when the search filter changes, only the book cards that differ are re-rendered — not the entire page, not the header, not the sidebar. This keeps the UI fast even with 100+ books in the list.
+
+React 18 Concurrent Features (also relevant):
+React 18 added startTransition and useDeferredValue to keep UI responsive during heavy re-renders — useful in my admin dashboard where large data tables are filtered in real-time.`
+      },
+      {
+        q: "What are React Hooks? Give real examples from your admin dashboard.",
+        a: `Hooks allow functional components to use state and other React features (previously only possible in class components).
+
+useState — local state management:
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  Used in every component. In my book listing page, books state holds the current list, loading shows a spinner.
+
+useEffect — side effects (API calls, subscriptions):
+  useEffect(() => {
+    setLoading(true);
+    fetchBooks(filters).then(data => { setBooks(data); setLoading(false); });
+  }, [filters]);  // Re-runs when filters change
+  Used for fetching books when search filters change in my platform.
+
+useContext — global state without prop drilling:
+  const { user, token } = useContext(AuthContext);
+  In my app, AuthContext holds the logged-in user and JWT token. Any component accesses it without passing props through every level.
+
+useReducer — complex state logic:
+  const [state, dispatch] = useReducer(requestReducer, initialState);
+  dispatch({ type: 'APPROVE_REQUEST', payload: requestId });
+  Used in my Request Management admin panel where multiple related state updates happen together.
+
+useMemo — memoize expensive computations:
+  const availableBooks = useMemo(() => books.filter(b => b.available), [books]);
+  Prevents recalculating the available books list on every render — only recalculates when books array changes.
+
+useCallback — memoize functions:
+  const handleSearch = useCallback((query) => fetchBooks(query), []);
+  Prevents child components from re-rendering due to new function references on every parent render.`
+      },
+      {
+        q: "How did you implement protected routes in React? Explain JWT token storage strategy.",
+        a: `Protected Routes: Routes that only authenticated users can access. Unauthenticated users are redirected to the login page.
+
+My implementation using React Router v6:
+  const ProtectedRoute = ({ children, allowedRoles }) => {
+    const { user, token } = useContext(AuthContext);
+
+    if (!token) return <Navigate to="/login" replace />;  // Not logged in
+    if (allowedRoles && !allowedRoles.includes(user.role))
+      return <Navigate to="/unauthorized" replace />;  // Wrong role
+
+    return children;
+  };
+
+  // Usage in App.jsx routing:
+  <Route path="/admin" element={
+    <ProtectedRoute allowedRoles={["ADMIN"]}>
+      <AdminDashboard />
+    </ProtectedRoute>
+  } />
+
+JWT Token Storage Strategy — the debate:
+
+localStorage (what many tutorials show but NOT the safest):
+  localStorage.setItem('token', jwt);
+  - Pros: Simple, persists across page refreshes.
+  - Cons: Vulnerable to XSS attacks — malicious JavaScript can read localStorage and steal the token.
+
+HttpOnly Cookies (most secure for production):
+  - Server sets the JWT as an httpOnly cookie.
+  - JavaScript CANNOT read httpOnly cookies — XSS proof.
+  - Browser automatically sends the cookie with every request.
+  - Requires CSRF protection.
+
+My approach: I used localStorage for the portfolio project (simple, common in tutorials). In a production app, I'd switch to httpOnly cookies with CSRF tokens. I'm aware of the security trade-off and can explain it to any interviewer.
+
+Additional security: I store short-lived access tokens (15 minutes) and refresh tokens (7 days) separately. This limits exposure if a token is stolen.`
+      },
+      {
+        q: "What is the difference between React Context and Redux for state management?",
+        a: `React Context: Built into React. Share state across components without prop drilling. Simple, no extra libraries.
+
+Redux: Third-party state management library. Centralized store with strict update rules (actions → reducers → state). Powerful for complex state.
+
+React Context:
+  const AuthContext = createContext();
+  // Provider wraps app, any child can consume
+  const { user } = useContext(AuthContext);
+  - Pros: No extra dependencies, simple for moderate state, built-in.
+  - Cons: Re-renders ALL consumers when context value changes. Not great for high-frequency updates. No built-in dev tools.
+
+Redux:
+  const count = useSelector(state => state.counter.value);
+  const dispatch = useDispatch();
+  dispatch(increment());
+  - Pros: Predictable state changes (strict flow). Excellent Redux DevTools — time-travel debugging. Better performance with selective subscription.
+  - Cons: Verbose boilerplate (actions, reducers, selectors). Learning curve.
+
+What I used in my projects:
+React Context: For authentication state (user, token, login/logout functions). This data rarely changes and is needed throughout the app. Context is perfect.
+
+No Redux: For my Book Sharing Platform's complexity level, Context sufficed. If the admin dashboard needed complex server-state management (caching API results, optimistic updates), I would add React Query (for server state) rather than Redux — it's more modern and solves the right problem.
+
+Simple guideline: Context for app-level state (auth, theme). React Query for server/async state. Redux for complex client-side state that doesn't come from APIs.`
+      },
+      {
+        q: "How do you handle API calls in React — Axios vs Fetch? How do you manage states?",
+        a: `Fetch: Built into the browser. No extra dependency. Verbose error handling (doesn't throw on 4xx/5xx). Good for simple cases.
+
+Axios: Third-party library. Cleaner API, automatic JSON parsing, throws errors on 4xx/5xx, supports request/response interceptors. What I use.
+
+My Axios setup:
+
+1. Axios instance with interceptors:
+  const api = axios.create({
+    baseURL: process.env.REACT_APP_API_URL,  // http://ec2-ip:30080
+    timeout: 10000
+  });
+
+  // Request interceptor: Auto-attach JWT
+  api.interceptors.request.use(config => {
+    const token = localStorage.getItem('token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+  });
+
+  // Response interceptor: Handle 401 globally
+  api.interceptors.response.use(
+    response => response,
+    error => {
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';  // Auto-logout
+      }
+      return Promise.reject(error);
+    }
+  );
+
+2. Managing loading/error/success states in components:
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchBooks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data } = await api.get('/api/books');
+      setBooks(data.content);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Render: show spinner if loading, error message if error, books if success.`
+      },
+      {
+        q: "What is lazy loading in React? How did you implement it in your multi-role dashboards?",
+        a: `Lazy Loading in React means loading components only when they're needed, not all at once when the app first loads.
+
+Problem without lazy loading:
+All code for ALL dashboards (Admin, Teacher, Student, Parent) is bundled into one large JavaScript file. Even if a Student logs in, they download Admin dashboard code they'll never use. Slow initial load.
+
+Solution — React.lazy + Suspense:
+  import { lazy, Suspense } from 'react';
+
+  // These components are NOT imported immediately
+  const AdminDashboard = lazy(() => import('./dashboards/AdminDashboard'));
+  const TeacherDashboard = lazy(() => import('./dashboards/TeacherDashboard'));
+  const StudentDashboard = lazy(() => import('./dashboards/StudentDashboard'));
+
+  function App() {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
+          <Route path="/admin/*" element={
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
+              <AdminDashboard />  {/* Loaded only when admin navigates here */}
+            </ProtectedRoute>
+          } />
+          <Route path="/student/*" element={<StudentDashboard />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
+How this works:
+When a Student logs in and navigates to /student/dashboard, React downloads only the StudentDashboard chunk. AdminDashboard code is never downloaded for this user.
+
+Results in my Attendance Management System:
+- Before: Initial bundle ~800KB, load time ~3.2s on slow 3G.
+- After: Initial bundle ~200KB, load time ~0.9s. Each dashboard loads in ~0.3s when first visited (then cached).`
+      },
+      {
+        q: "How do you optimize React app performance?",
+        a: `Performance optimization in React has several layers:
+
+1. React.memo — prevent unnecessary re-renders:
+  const BookCard = React.memo(({ book, onRequest }) => {
+    return <div>...</div>;
+  });
+  BookCard only re-renders if its props actually change. In my book list with 50 cards, changing the search filter no longer re-renders unchanged book cards.
+
+2. useMemo — memoize expensive calculations:
+  const sortedBooks = useMemo(() =>
+    books.sort((a, b) => b.requestCount - a.requestCount),
+    [books]  // Only re-sort when books array changes
+  );
+
+3. useCallback — stable function references:
+  const handleBookRequest = useCallback((bookId) => {
+    submitRequest(bookId);
+  }, []);  // Function reference stays stable, doesn't trigger child re-renders
+
+4. Code Splitting + Lazy Loading (covered in previous answer).
+
+5. Virtualization for large lists — react-window:
+  In my admin dashboard showing 500 placements, instead of rendering 500 DOM nodes, use a virtual list that renders only the ~15 visible rows:
+  import { FixedSizeList } from 'react-window';
+  <FixedSizeList height={600} itemCount={placements.length} itemSize={60}>
+    {({ index, style }) => <PlacementRow placement={placements[index]} style={style} />}
+  </FixedSizeList>
+
+6. Image optimization:
+  - Lazy load images: <img loading="lazy" src={book.coverUrl} />
+  - Use WebP format via S3 pre-processing.
+  - Show placeholder until image loads.
+
+7. Debouncing search input:
+  const debouncedSearch = useCallback(debounce(fetchBooks, 300), []);
+  Prevents API call on every keystroke — waits 300ms after user stops typing.`
+      },
+      {
+        q: "What is CORS and how do you handle it between your React frontend and Spring Boot backend?",
+        a: `CORS (Cross-Origin Resource Sharing) is a browser security policy that blocks web pages from making requests to a different origin (domain/port/protocol) than the page was loaded from.
+
+Problem: My React app runs at http://localhost:3000 (development) or http://ec2-ip:3000 (production). My API Gateway runs at http://ec2-ip:30080. These are different origins — browser blocks the request.
+
+Error: "Access to XMLHttpRequest has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header"
+
+Why browsers enforce CORS: Prevents malicious websites from making requests to your bank/email on your behalf (since your browser would send your cookies).
+
+My solutions:
+
+1. Spring Boot CORS Configuration (what I use):
+  @Configuration
+  public class CorsConfig implements WebMvcConfigurer {
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+      registry.addMapping("/api/**")
+        .allowedOrigins("http://localhost:3000", "http://ec2-public-ip:3000")
+        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+        .allowedHeaders("*")
+        .allowCredentials(true)
+        .maxAge(3600);
+    }
+  }
+
+2. In Spring Cloud Gateway (centralized CORS):
+  spring.cloud.gateway.globalcors.corsConfigurations:
+    '[/**]':
+      allowedOrigins: "http://localhost:3000"
+      allowedMethods: "*"
+      allowedHeaders: "*"
+  Preferred in my microservices setup — CORS configured once at the Gateway, not in every service.
+
+3. Development proxy (avoids CORS entirely during development):
+  // package.json
+  "proxy": "http://localhost:8080"
+  React DevServer proxies API requests — browser thinks everything is same-origin.
+
+CORS is a BROWSER enforcement — it doesn't affect server-to-server communication (like Postman, curl, or service-to-service calls).`
+      }
+    ]
+  },
+  {
+    section: "SECTION 9: System Design & Architecture (Q93–Q97)",
+    qa: [
+      {
+        q: "Design a URL shortener like bit.ly from scratch — database schema, API design, caching, scalability.",
+        a: `This is a classic system design question. Here's my approach:
+
+Requirements:
+- Shorten long URLs: https://longdomain.com/very/long/path → https://short.ly/aX3k9
+- Redirect: GET short.ly/aX3k9 → 301/302 redirect to original URL
+- Analytics (optional): track click counts
+
+Database Schema:
+  CREATE TABLE urls (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    short_code VARCHAR(8) NOT NULL UNIQUE,
+    original_url TEXT NOT NULL,
+    user_id BIGINT,
+    created_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    click_count BIGINT DEFAULT 0,
+    INDEX idx_short_code (short_code)
+  );
+
+Short code generation (Base62 encoding):
+Characters: 0-9, a-z, A-Z = 62 characters.
+6-character code = 62^6 = 56 billion combinations. Sufficient.
+  String encode(long id) {
+    StringBuilder sb = new StringBuilder();
+    while (id > 0) { sb.append(BASE62_CHARS[(int)(id % 62)]); id /= 62; }
+    return sb.reverse().toString();
+  }
+Alternatively: Use UUID v4 and take first 7 characters (check for collisions).
+
+API Design:
+  POST /api/shorten { "url": "https://..." } → { "shortUrl": "https://short.ly/aX3k9" }
+  GET /{shortCode}  → 301 Redirect to original URL
+
+Caching (Critical — reads vastly outnumber writes):
+  Redis: key = shortCode, value = originalUrl, TTL = 24 hours.
+  Read path: Check Redis → if hit, redirect (1ms). If miss, query MySQL, populate Redis, redirect (50ms).
+
+Scaling:
+- Read traffic: Redis cache handles 99%+ of reads. Multiple app instances behind load balancer.
+- Write traffic: MySQL handles writes. Can shard by shortCode prefix for extreme scale.
+- Analytics: Use Kafka — each redirect publishes an event, analytics service aggregates asynchronously.`
+      },
+      {
+        q: "How would you scale your Book Sharing Platform to handle 1 million users?",
+        a: `This is about evolving the current architecture. Here's my roadmap:
+
+Current state: Single EC2, K3s, MySQL, Redis, Kafka — handles hundreds of users.
+
+To handle 1 million users:
+
+1. Database Scaling:
+   - Read replicas: 80% of traffic is reads. Add 2-3 MySQL read replicas. Route read queries to replicas, writes to primary. Immediate 3x read throughput.
+   - Connection pooling: Move from embedded HikariCP to PgBouncer/ProxySQL for centralized connection pooling.
+   - Sharding: If single DB can't handle write load, shard books table by geographic region (books in Hyderabad on Shard 1, Mumbai on Shard 2).
+
+2. Cache Scaling:
+   - Redis Cluster: Shard cache across multiple Redis nodes.
+   - CDN: Book cover images via CloudFront. Static assets cached at edge globally.
+
+3. Application Scaling:
+   - Move to managed Kubernetes (AWS EKS) — autoscaling across multiple EC2 nodes.
+   - HPA on all services: scale to 10+ replicas under load.
+   - Separate read and write paths (CQRS) for book search.
+
+4. Search:
+   - Replace MySQL LIKE queries with Elasticsearch for full-text and geolocation search. Kafka events keep Elasticsearch in sync with MySQL.
+
+5. Message Queue:
+   - Kafka cluster with 3+ brokers, replicated topics.
+   - Increase partitions on hot topics for more consumer parallelism.
+
+6. Infrastructure:
+   - Multi-region deployment for global availability.
+   - AWS RDS Multi-AZ, ElastiCache Redis Cluster.
+
+7. Observability at scale:
+   - Centralized logging with ELK stack (Elasticsearch, Logstash, Kibana).
+   - Distributed tracing with Jaeger.`
+      },
+      {
+        q: "Design a real-time notification system. How would you handle fan-out to thousands of users?",
+        a: `My Book Platform already has a basic notification system. Let me design a production-scale version.
+
+Types of notifications:
+- In-app (real-time, shown in browser)
+- Email
+- Push (mobile)
+
+Architecture:
+
+1. Event Publishing:
+Any service that generates a notification event publishes to Kafka:
+  { "type": "BOOK_REQUEST_APPROVED", "userId": 123, "bookTitle": "Clean Code", "timestamp": "..." }
+
+2. Notification Service (fan-out):
+Consumes Kafka events. For each event:
+  - Looks up user's notification preferences from DB/Redis.
+  - Routes to appropriate sender: InAppSender, EmailSender, PushSender.
+  - Saves notification to notifications table in DB.
+
+3. Real-time delivery (WebSocket):
+For in-app notifications, I use WebSocket (Spring WebSocket/STOMP):
+  - When user opens the app, browser establishes WebSocket connection to Notification Service.
+  - When Notification Service processes an event for userId=123, it pushes to the user's WebSocket session.
+  - User sees notification instantly without refreshing.
+
+Fan-out challenge (one event → notifications to many users):
+  Example: Admin broadcasts announcement to 100,000 users.
+  Naive approach: Loop through 100,000 users, send WebSocket message. Takes minutes.
+
+  Scalable fan-out approach:
+  - Publish one "broadcast" event to Kafka.
+  - Multiple Notification Service instances (10 replicas), each handling different user ID ranges.
+  - Each instance processes its user shard and sends WebSocket messages in parallel.
+  - For email fan-out, use a dedicated email service with async bulk-sending (AWS SES batch API).
+
+4. Notification storage:
+  - Save all notifications to notifications table with read/unread status.
+  - Redis cache for "unread count badge" — increment on new notification, decrement on read.`
+      },
+      {
+        q: "What is CAP theorem? How does it apply to your distributed systems?",
+        a: `CAP Theorem states that a distributed system can guarantee only 2 of these 3 properties simultaneously:
+
+C — Consistency: Every read gets the most recent write (or an error). All nodes see the same data at the same time.
+
+A — Availability: Every request receives a response (not an error), though it may not be the latest data.
+
+P — Partition Tolerance: The system continues operating even when network failures prevent some nodes from communicating.
+
+Since network partitions are INEVITABLE in distributed systems (network cables fail, EC2 instances lose connectivity), P must always be chosen. The real choice is between Consistency and Availability during a network partition.
+
+CP Systems (choose Consistency over Availability):
+During network partition, refuse to serve requests rather than return potentially stale data.
+Example: Zookeeper, HBase, etcd (Kubernetes' database).
+When to choose CP: Financial systems, inventory management — stale data causes real harm.
+
+AP Systems (choose Availability over Consistency):
+During network partition, serve requests with potentially stale data.
+Example: Cassandra, CouchDB, DynamoDB.
+When to choose AP: Social media feeds, recommendation systems — slight staleness is acceptable.
+
+How this applies to my projects:
+
+MySQL (CP-leaning): Strong ACID guarantees. I chose consistency for book availability — I'd rather return an error than tell a user a book is available when it's not.
+
+Redis Cache (AP-leaning): Redis can serve stale data from cache if the DB is unreachable. Acceptable for non-critical data like book descriptions. For availability (is this book available?), I configured a short TTL and fallback to DB.
+
+Kafka: Designed for high availability — messages are replicated across brokers. Prioritizes availability (AP).
+
+Eureka: Prefers availability. During a partition, Eureka continues serving stale registry data rather than stopping service discovery.`
+      },
+      {
+        q: "How would you design a rate limiter for your API Gateway using Redis?",
+        a: `A rate limiter prevents any single client from overwhelming the API with too many requests.
+
+Use cases: Prevent API abuse, DDoS protection, enforce fair usage (100 requests/minute per user).
+
+Two common algorithms:
+
+1. Fixed Window Counter (simple):
+  - Key: rate:userId:minute (e.g., "rate:123:2024-01-01-14:30")
+  - On each request: INCR key, EXPIRE key 60
+  - If count > limit → reject with 429.
+  - Problem: Burst at window boundary (99 requests at 14:30:59, 99 more at 14:31:00 → 198 in 2 seconds).
+
+2. Sliding Window Log (precise but memory-heavy):
+  - Store timestamp of each request in a Redis sorted set.
+  - Remove entries older than 1 minute.
+  - Count remaining entries. If > limit → reject.
+
+3. Token Bucket (what I implemented in Spring Cloud Gateway):
+  - User has a "bucket" of N tokens (N = rate limit).
+  - Each request consumes 1 token.
+  - Tokens refill at a constant rate (R per second).
+  - If bucket empty → reject.
+  - Allows short bursts up to bucket capacity.
+
+My Redis Token Bucket Implementation:
+  Lua script (atomic):
+  local tokens = redis.call('GET', key)
+  if tokens == nil then tokens = max_tokens end
+  if tokens > 0 then
+    redis.call('SET', key, tokens - 1, 'EX', window_seconds)
+    return 1  -- Allow
+  else
+    return 0  -- Deny
+  end
+
+Why Lua script? It runs atomically on Redis — no race condition between check and decrement.
+
+Spring Cloud Gateway integration:
+  filters:
+    - name: RequestRateLimiter
+      args:
+        redis-rate-limiter.replenishRate: 10   # Fill 10 tokens/second
+        redis-rate-limiter.burstCapacity: 20   # Bucket holds 20 tokens
+        key-resolver: "#{@userKeyResolver}"
+
+Response headers: X-RateLimit-Remaining: 7, X-RateLimit-Reset: 1640000060 — so clients know their remaining quota.`
+      }
+    ]
+  },
+  {
+    section: "SECTION 10: Behavioral, Problem Solving & Situational (Q98–Q100)",
+    qa: [
+      {
+        q: "Tell me about the hardest technical problem you faced during your Community Book Sharing Platform. How did you resolve it?",
+        a: `The hardest problem was migrating from a local Docker Compose setup to production Kubernetes on AWS EC2.
+
+What happened:
+Everything worked perfectly on my laptop with Docker Compose. When I deployed to K3s on EC2, services were either unable to discover each other or crashing with connection errors — even though the Kubernetes manifests looked correct.
+
+Root cause analysis (took 2 days to identify):
+1. Eureka service discovery was failing because pods were registering with their internal pod IP (e.g., 10.42.0.5), which changed every time a pod restarted. Other services had the old IP cached.
+   Fix: Added eureka.instance.prefer-ip-address=false and eureka.instance.hostname=${spring.application.name} — services register by DNS name, not IP.
+
+2. MySQL PVC was provisioned but the Book Service was trying to connect before MySQL was fully initialized. Spring retried only 3 times before giving up.
+   Fix: Added Kubernetes initContainers to check MySQL readiness before starting the app:
+   initContainers:
+     - name: wait-for-mysql
+       image: busybox
+       command: ['sh', '-c', 'until nc -z mysql-service 3306; do echo waiting...; sleep 2; done']
+
+3. Kafka was using localhost:9092 in the config — worked in Docker Compose (localhost = kafka container via Docker network), failed in Kubernetes where each pod has its own localhost.
+   Fix: Changed to kafka-service:9092 using the Kubernetes Service DNS name.
+
+Key lesson learned:
+Network DNS resolution is completely different between Docker Compose and Kubernetes. In Compose, containers can reach each other by service name. In Kubernetes, they need the full Service DNS: service-name.namespace.svc.cluster.local (or just service-name within the same namespace).
+After fixing these three issues, the full platform came up in one shot. This experience gave me deep understanding of Kubernetes networking that no tutorial would have taught me.`
+      },
+      {
+        q: "You were Runner-up at Cognitive-X Smart Intenz Hackathon. Walk me through what you built and a key technical decision.",
+        a: `Context: 100+ teams, 24-36 hour hackathon. Our team of 3 built a solution in the Smart Education domain.
+
+What we built: An AI-powered Adaptive Learning Platform — a system that personalizes quiz difficulty in real-time based on student performance patterns, identifies knowledge gaps, and generates targeted questions.
+
+The challenge we were solving: Traditional education gives all students the same content at the same pace. Students who fall behind get more of the same content that didn't work for them. We built a system that adapts to each student.
+
+Key technical stack:
+- React.js frontend — clean, real-time quiz interface with performance graphs.
+- Spring Boot backend — REST APIs for quiz management, performance tracking.
+- Firebase — real-time student performance updates.
+- ML model (Python/Flask microservice) — analyzed performance patterns to adjust difficulty.
+
+The key technical decision that won us points:
+The judges asked: "How does your difficulty adaptation work in real-time without lag?"
+
+My solution: Instead of calling the ML model on every answer (slow — 300-500ms per call), I implemented a local rule-engine in the Spring Boot service:
+- 3 correct in a row → increase difficulty immediately (no ML call needed).
+- 3 wrong in a row → decrease difficulty + flag for detailed ML analysis.
+- ML model runs asynchronously in the background on patterns, not on individual answers.
+
+This gave us instant difficulty adjustment (< 5ms) while still leveraging the ML model for deeper pattern analysis. The judges specifically called out this architecture decision during the evaluation.
+
+Outcome: Runner-up among 100+ teams. The judges praised the production-quality implementation and the thoughtful performance optimization.`
+      },
+      {
+        q: "Where do you see yourself in 3 years? What skills are you actively working on right now?",
+        a: `In 3 years, I see myself as a confident Senior Java Full Stack Developer who owns the full lifecycle of production systems — from system design and architecture decisions to implementation, deployment, and monitoring.
+
+Specifically, I want to:
+1. Be the person in the room who can design a scalable microservices architecture for a complex business problem, explain trade-offs, and lead implementation.
+2. Contribute to and review system design decisions at a team level — not just write code, but shape how systems are built.
+3. Develop strong product thinking — understanding not just how to build something, but why and for whom.
+
+What I'm actively working on RIGHT NOW:
+
+1. System Design depth: I practice 2-3 system design problems per week (Designing Twitter, Netflix, Uber). I'm working through Alex Xu's "System Design Interview" book.
+
+2. Advanced Spring Boot and Cloud: Exploring Spring Cloud Kubernetes for config management, Istio service mesh for advanced traffic management, and circuit breakers at scale.
+
+3. AWS Certifications: Preparing for AWS Solutions Architect Associate — to formalize and deepen my cloud knowledge beyond hands-on experience.
+
+4. Code quality: Writing unit and integration tests for my projects (JUnit 5, Mockito, Testcontainers). I want every PR I submit in a job to have solid test coverage.
+
+5. Open Source: Planning to contribute to Spring Boot or Kubernetes tooling — best way to learn at a deep level.
+
+Honest self-assessment: I'm a strong practitioner who has built and shipped real systems. My gap is enterprise-scale experience (100s of developers, complex legacy systems). I'm eager to fill that gap by working alongside experienced engineers in a product company.`
+      }
+    ]
+  }
+];
+
+const border = { style: BorderStyle.SINGLE, size: 1, color: "DDDDDD" };
+const borders = { top: border, bottom: border, left: border, right: border };
+
+const children = [];
+
+// Cover Page
+children.push(new Paragraph({
+  alignment: AlignmentType.CENTER,
+  spacing: { before: 1200, after: 180 },
+  children: [new TextRun({ text: "JAVA FULL STACK DEVELOPER", bold: true, size: 44, color: "1F4E79", font: "Arial" })]
+}));
+children.push(new Paragraph({
+  alignment: AlignmentType.CENTER,
+  spacing: { before: 0, after: 160 },
+  children: [new TextRun({ text: "100 Interview Q&A Guide", bold: true, size: 34, color: "2E86AB", font: "Arial" })]
+}));
+children.push(new Paragraph({
+  alignment: AlignmentType.CENTER,
+  spacing: { before: 0, after: 100 },
+  children: [new TextRun({ text: "Nadipi Srujan Reddy  |  B.Tech CSE  |  CGPA 8.5", size: 24, color: "444444", font: "Arial" })]
+}));
+children.push(new Paragraph({
+  alignment: AlignmentType.CENTER,
+  spacing: { before: 0, after: 600 },
+  children: [new TextRun({ text: "Answers written by a Senior Java Full Stack Developer (10+ Years Experience)", size: 20, color: "888888", font: "Arial", italics: true })]
+}));
+children.push(new Paragraph({
+  border: { bottom: { style: BorderStyle.SINGLE, size: 10, color: "1F4E79", space: 1 } },
+  spacing: { before: 0, after: 600 },
+  children: [new TextRun("")]
+}));
+
+let qNum = 1;
+for (const section of qa_data) {
+  // Section header
+  children.push(new Paragraph({
+    spacing: { before: 500, after: 200 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "2E86AB", space: 1 } },
+    children: [new TextRun({ text: section.section, bold: true, color: "1F4E79", size: 28, font: "Arial" })]
+  }));
+
+  for (const item of section.qa) {
+    // Question box
+    children.push(new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: [9360],
+      rows: [new TableRow({
+        children: [new TableCell({
+          borders,
+          width: { size: 9360, type: WidthType.DXA },
+          shading: { fill: "1F4E79", type: ShadingType.CLEAR },
+          margins: { top: 120, bottom: 120, left: 180, right: 180 },
+          children: [new Paragraph({
+            children: [
+              new TextRun({ text: `Q${qNum}. `, bold: true, color: "FFFFFF", size: 24, font: "Arial" }),
+              new TextRun({ text: item.q, bold: true, color: "FFFFFF", size: 23, font: "Arial" })
+            ]
+          })]
+        })]
+      })]
+    }));
+
+    // Answer box
+    const answerLines = item.a.split('\n');
+    const answerParagraphs = answerLines.map(line => {
+      const isCode = line.startsWith('  ') || line.startsWith('\t');
+      return new Paragraph({
+        spacing: { before: 40, after: 40 },
+        children: [new TextRun({
+          text: line,
+          font: isCode ? "Courier New" : "Arial",
+          size: isCode ? 18 : 21,
+          color: isCode ? "2B6CB0" : "222222",
+          bold: line.endsWith(':') && !isCode && line.length < 60
+        })]
+      });
+    });
+
+    children.push(new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: [9360],
+      rows: [new TableRow({
+        children: [new TableCell({
+          borders,
+          width: { size: 9360, type: WidthType.DXA },
+          shading: { fill: "F8FBFF", type: ShadingType.CLEAR },
+          margins: { top: 140, bottom: 140, left: 200, right: 200 },
+          children: answerParagraphs
+        })]
+      })]
+    }));
+
+    children.push(new Paragraph({ spacing: { before: 120, after: 60 }, children: [new TextRun("")] }));
+    qNum++;
+  }
+}
+
+const doc = new Document({
+  styles: {
+    default: { document: { run: { font: "Arial", size: 22 } } }
+  },
+  sections: [{
+    properties: {
+      page: {
+        size: { width: 12240, height: 15840 },
+        margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 }
+      }
+    },
+    children
+  }]
+});
+
+Packer.toBuffer(doc).then(buffer => {
+  fs.writeFileSync("/home/claude/SrujanReddy_QA_Guide.docx", buffer);
+  console.log("Done! " + qNum + " questions written.");
+});
+ENDOFFILE
+echo "File created"

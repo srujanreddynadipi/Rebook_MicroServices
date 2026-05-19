@@ -13,7 +13,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Builder
+@Builder 
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateBookRequest {
