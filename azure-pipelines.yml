@@ -15,11 +15,12 @@ stages:
     displayName: Build and Push Docker Images
     jobs:
       - job: BuildAndPushAllImages
-        displayName: Build and push all service images in parallel
+        displayName: Build and push changed service images
         pool:
           vmImage: ubuntu-latest
         steps:
           - checkout: self
+            fetchDepth: 2
 
           - task: Docker@2
             displayName: Login to ACR
@@ -30,16 +31,40 @@ stages:
           - bash: |
               set -euo pipefail
 
-              services=(
-                "api-gateway|rebook-api-gateway|api-gateway/Dockerfile|api-gateway"
-                "auth-service|rebook-auth-service|auth-service/Dockerfile|auth-service"
-                "book-service|rebook-book-service|book-service/Dockerfile|book-service"
-                "request-service|rebook-request-service|request-service/Dockerfile|request-service"
-                "chat-service|rebook-chat-service|chat-service/Dockerfile|chat-service"
-                "notification-service|rebook-notification-service|notification-service/Dockerfile|notification-service"
-                "rag-service|rebook-rag-service|rag-service/Dockerfile|rag-service"
-                "eureka-server|rebook-eureka-server|eureka-server/Dockerfile|eureka-server"
-                "frontend|rebook-frontend|frontend/Dockerfile|frontend"
+              declare -A service_repo=(
+                ["api-gateway"]="rebook-api-gateway"
+                ["auth-service"]="rebook-auth-service"
+                ["book-service"]="rebook-book-service"
+                ["request-service"]="rebook-request-service"
+                ["chat-service"]="rebook-chat-service"
+                ["notification-service"]="rebook-notification-service"
+                ["rag-service"]="rebook-rag-service"
+                ["eureka-server"]="rebook-eureka-server"
+                ["frontend"]="rebook-frontend"
+              )
+
+              declare -A service_dockerfile=(
+                ["api-gateway"]="api-gateway/Dockerfile"
+                ["auth-service"]="auth-service/Dockerfile"
+                ["book-service"]="book-service/Dockerfile"
+                ["request-service"]="request-service/Dockerfile"
+                ["chat-service"]="chat-service/Dockerfile"
+                ["notification-service"]="notification-service/Dockerfile"
+                ["rag-service"]="rag-service/Dockerfile"
+                ["eureka-server"]="eureka-server/Dockerfile"
+                ["frontend"]="frontend/Dockerfile"
+              )
+
+              declare -A service_context=(
+                ["api-gateway"]="api-gateway"
+                ["auth-service"]="auth-service"
+                ["book-service"]="book-service"
+                ["request-service"]="request-service"
+                ["chat-service"]="chat-service"
+                ["notification-service"]="notification-service"
+                ["rag-service"]="rag-service"
+                ["eureka-server"]="eureka-server"
+                ["frontend"]="frontend"
               )
 
               build_and_push() {
@@ -59,11 +84,44 @@ stages:
                 echo "Finished $service_name"
               }
 
-              for service in "${services[@]}"; do
-                IFS='|' read -r service_name repository_name dockerfile_path build_context <<< "$service"
-                build_and_push "$service_name" "$repository_name" "$dockerfile_path" "$build_context" &
+              base_commit=""
+              if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+                base_commit="$(git rev-parse HEAD^)"
+              fi
+
+              if [ -z "$base_commit" ]; then
+                echo "No parent commit found; building all services for this run."
+                changed_files="$(git ls-files)"
+              else
+                changed_files="$(git diff --name-only "$base_commit" HEAD)"
+              fi
+
+              declare -a changed_services=()
+
+              for service_name in "${!service_repo[@]}"; do
+                while IFS= read -r file; do
+                  if [[ "$file" == "$service_name/"* ]] || [[ "$file" == "$service_name/Dockerfile" ]]; then
+                    changed_services+=("$service_name")
+                    break
+                  fi
+                done <<< "$changed_files"
+              done
+
+              if [ ${#changed_services[@]} -eq 0 ]; then
+                echo "No service folder changes detected. Skipping image build and push."
+                exit 0
+              fi
+
+              echo "Services to build: ${changed_services[*]}"
+
+              for service_name in "${changed_services[@]}"; do
+                build_and_push \
+                  "$service_name" \
+                  "${service_repo[$service_name]}" \
+                  "${service_dockerfile[$service_name]}" \
+                  "${service_context[$service_name]}" &
               done
 
               wait
-              echo "All image builds and pushes completed."
-            displayName: Build and push all images in parallel
+              echo "Changed image builds and pushes completed."
+            displayName: Build and push changed images in parallel
