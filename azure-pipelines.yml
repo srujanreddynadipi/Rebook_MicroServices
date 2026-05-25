@@ -1,0 +1,88 @@
+trigger:
+  branches:
+    include:
+      - azure-devops-pipeline
+      - main
+
+pr: none
+
+variables:
+  acrServiceConnection: 'acr-sujanreddy-conn'
+
+stages:
+  - stage: BuildAndPushImages
+    displayName: Build and Push Docker Images
+    jobs:
+      - job: BuildAndPush
+        displayName: Build and push all service images
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          matrix:
+            api_gateway:
+              serviceName: 'api-gateway'
+              repositoryName: 'rebook-api-gateway'
+              dockerfilePath: 'api-gateway/Dockerfile'
+              buildContext: 'api-gateway'
+            auth_service:
+              serviceName: 'auth-service'
+              repositoryName: 'rebook-auth-service'
+              dockerfilePath: 'auth-service/Dockerfile'
+              buildContext: 'auth-service'
+            book_service:
+              serviceName: 'book-service'
+              repositoryName: 'rebook-book-service'
+              dockerfilePath: 'book-service/Dockerfile'
+              buildContext: 'book-service'
+            request_service:
+              serviceName: 'request-service'
+              repositoryName: 'rebook-request-service'
+              dockerfilePath: 'request-service/Dockerfile'
+              buildContext: 'request-service'
+            chat_service:
+              serviceName: 'chat-service'
+              repositoryName: 'rebook-chat-service'
+              dockerfilePath: 'chat-service/Dockerfile'
+              buildContext: 'chat-service'
+            notification_service:
+              serviceName: 'notification-service'
+              repositoryName: 'rebook-notification-service'
+              dockerfilePath: 'notification-service/Dockerfile'
+              buildContext: 'notification-service'
+            rag_service:
+              serviceName: 'rag-service'
+              repositoryName: 'rebook-rag-service'
+              dockerfilePath: 'rag-service/Dockerfile'
+              buildContext: 'rag-service'
+            eureka_server:
+              serviceName: 'eureka-server'
+              repositoryName: 'rebook-eureka-server'
+              dockerfilePath: 'eureka-server/Dockerfile'
+              buildContext: 'eureka-server'
+            frontend:
+              serviceName: 'frontend'
+              repositoryName: 'rebook-frontend'
+              dockerfilePath: 'frontend/Dockerfile'
+              buildContext: 'frontend'
+
+        steps:
+          - checkout: self
+
+          - task: Docker@2
+            displayName: Login to ACR
+            inputs:
+              command: login
+              containerRegistry: $(acrServiceConnection)
+
+          - task: Docker@2
+            displayName: Build and push $(serviceName)
+            inputs:
+              command: buildAndPush
+              containerRegistry: $(acrServiceConnection)
+              repository: $(repositoryName)
+              dockerfile: $(dockerfilePath)
+              buildContext: $(buildContext)
+              tags: |
+                latest
+                $(Build.BuildId)
+                $(Build.SourceVersion)
