@@ -13,76 +13,119 @@ stages:
   - stage: BuildAndPushImages
     displayName: Build and Push Docker Images
     jobs:
-      - job: BuildAndPush
-        displayName: Build and push all service images
+      - job: BuildAndPush_api_gateway
+        displayName: Build and push api-gateway
+        dependsOn: []
         pool:
           vmImage: ubuntu-latest
-        strategy:
-          matrix:
-            api_gateway:
+        steps:
+          - template: azure-pipelines-image-job.yml
+            parameters:
               serviceName: 'api-gateway'
               repositoryName: 'rebook-api-gateway'
               dockerfilePath: 'api-gateway/Dockerfile'
               buildContext: 'api-gateway'
-            auth_service:
+
+      - job: BuildAndPush_auth_service
+        displayName: Build and push auth-service
+        dependsOn: []
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - template: azure-pipelines-image-job.yml
+            parameters:
               serviceName: 'auth-service'
               repositoryName: 'rebook-auth-service'
               dockerfilePath: 'auth-service/Dockerfile'
               buildContext: 'auth-service'
-            book_service:
+
+      - job: BuildAndPush_book_service
+        displayName: Build and push book-service
+        dependsOn: []
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - template: azure-pipelines-image-job.yml
+            parameters:
               serviceName: 'book-service'
               repositoryName: 'rebook-book-service'
               dockerfilePath: 'book-service/Dockerfile'
               buildContext: 'book-service'
-            request_service:
+
+      - job: BuildAndPush_request_service
+        displayName: Build and push request-service
+        dependsOn: []
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - template: azure-pipelines-image-job.yml
+            parameters:
               serviceName: 'request-service'
               repositoryName: 'rebook-request-service'
               dockerfilePath: 'request-service/Dockerfile'
               buildContext: 'request-service'
-            chat_service:
+
+      - job: BuildAndPush_chat_service
+        displayName: Build and push chat-service
+        dependsOn: []
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - template: azure-pipelines-image-job.yml
+            parameters:
               serviceName: 'chat-service'
               repositoryName: 'rebook-chat-service'
               dockerfilePath: 'chat-service/Dockerfile'
               buildContext: 'chat-service'
-            notification_service:
+
+      - job: BuildAndPush_notification_service
+        displayName: Build and push notification-service
+        dependsOn: []
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - template: azure-pipelines-image-job.yml
+            parameters:
               serviceName: 'notification-service'
               repositoryName: 'rebook-notification-service'
               dockerfilePath: 'notification-service/Dockerfile'
               buildContext: 'notification-service'
-            rag_service:
+
+      - job: BuildAndPush_rag_service
+        displayName: Build and push rag-service
+        dependsOn: []
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - template: azure-pipelines-image-job.yml
+            parameters:
               serviceName: 'rag-service'
               repositoryName: 'rebook-rag-service'
               dockerfilePath: 'rag-service/Dockerfile'
               buildContext: 'rag-service'
-            eureka_server:
+
+      - job: BuildAndPush_eureka_server
+        displayName: Build and push eureka-server
+        dependsOn: []
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - template: azure-pipelines-image-job.yml
+            parameters:
               serviceName: 'eureka-server'
               repositoryName: 'rebook-eureka-server'
               dockerfilePath: 'eureka-server/Dockerfile'
               buildContext: 'eureka-server'
-            frontend:
+
+      - job: BuildAndPush_frontend
+        displayName: Build and push frontend
+        dependsOn: []
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - template: azure-pipelines-image-job.yml
+            parameters:
               serviceName: 'frontend'
               repositoryName: 'rebook-frontend'
               dockerfilePath: 'frontend/Dockerfile'
               buildContext: 'frontend'
-
-        steps:
-          - checkout: self
-
-          - task: Docker@2
-            displayName: Login to ACR
-            inputs:
-              command: login
-              containerRegistry: $(acrServiceConnection)
-
-          - task: Docker@2
-            displayName: Build and push $(serviceName)
-            inputs:
-              command: buildAndPush
-              containerRegistry: $(acrServiceConnection)
-              repository: $(repositoryName)
-              dockerfile: $(dockerfilePath)
-              buildContext: $(buildContext)
-              tags: |
-                latest
-                $(Build.BuildId)
-                $(Build.SourceVersion)

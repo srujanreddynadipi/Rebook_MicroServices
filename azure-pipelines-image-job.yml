@@ -1,0 +1,27 @@
+parameters:
+  serviceName: ''
+  repositoryName: ''
+  dockerfilePath: ''
+  buildContext: ''
+
+steps:
+  - checkout: self
+
+  - task: Docker@2
+    displayName: Login to ACR
+    inputs:
+      command: login
+      containerRegistry: $(acrServiceConnection)
+
+  - task: Docker@2
+    displayName: Build and push ${{ parameters.serviceName }}
+    inputs:
+      command: buildAndPush
+      containerRegistry: $(acrServiceConnection)
+      repository: ${{ parameters.repositoryName }}
+      dockerfile: ${{ parameters.dockerfilePath }}
+      buildContext: ${{ parameters.buildContext }}
+      tags: |
+        latest
+        $(Build.BuildId)
+        $(Build.SourceVersion)
